@@ -30,6 +30,13 @@ namespace pang
     vector<u8> _data;
   };
 
+  struct Bullet
+  {
+    u32 playerId;
+    Vector2f dir;
+    Vector2f pos;
+  };
+
   class Game
   {
   public:
@@ -48,6 +55,7 @@ namespace pang
     void AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to);
     void DrawGrid();
     void UpdateMessages();
+    void Update();
 
     Vector2f ClampedDestination(const Vector2f& pos, const Vector2f& dir);
     Vector2f SnappedPos(const Vector2f& pos);
@@ -76,12 +84,14 @@ namespace pang
     Level _level;
     Sprite _levelSprite;
 
+    vector<Bullet> _bullets;
     vector<Message> _messages;
     Font _font;
     u32 _gridSize;
     bool _focus;
     bool _done;
     ptime _now;
+    ptime _lastUpdate;
 
     u8 _prevLeft, _prevRight;
   };

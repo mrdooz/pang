@@ -5,22 +5,6 @@
 
 using namespace pang;
 
-namespace
-{
-  Vector2f ClampVector(const Vector2f& v)
-  {
-    return Vector2f(floor(v.x), floor(v.y));
-  }
-
-  Vector2f ClampVector(const Vector2f& v, float f)
-  {
-    int x = (v.x + f / 2) / f;
-    int y = (v.y + f / 2) / f;
-    return Vector2f(x * f, y * f);
-  }
-}
-
-
 //----------------------------------------------------------------------------------
 void Level::Init(u32 width, u32 height)
 {
@@ -208,9 +192,32 @@ bool Game::OnKeyPressed(const Event& event)
 {
   Keyboard::Key key = event.key.code;
   Entity& e = _entities[0];
+  Vector2f c(_gridSize/2, _gridSize/2);
 
   switch (key)
   {
+    case Keyboard::Space:
+    {
+      Vector2f dir = Vector2f(sinf(e._rot), cosf(e._rot));
+      Vector2f pos = e._pos + c + (float)_gridSize * dir;
+      if (IsValidPos(pos))
+      {
+        ActionBullet* b = new ActionBullet();
+        b->playerId = e._id;
+        b->pos = pos;
+        b->dir = dir;
+        _actionQueue.push_back(b);
+      }
+/*
+      Bullet b;
+      b.dir = Vector2f(sinf(e._rot), cosf(e._rot));
+      b.pos = e._pos + c + (float)_gridSize * b.dir;
+      b.playerId = e._id;
+      _bullets.push_back(b);
+*/
+      break;
+    }
+
     case Keyboard::Escape:
       _done = true;
       break;
@@ -280,7 +287,7 @@ void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
     if (a->type == ActionType::Move && a->playerId == playerId)
     {
       ActionMove* m = static_cast<ActionMove*>(a);
-      if (ClampVector(m->to) == ClampVector(to))
+      if (SnappedPos(m->to) == SnappedPos(to))
       {
         // The requested move is already in progress, so bail
         return;
@@ -330,6 +337,47 @@ void Game::EraseMoveActions(u32 playerId)
     }
   }
 }
+//----------------------------------------------------------------------------------
+void Game::Update()
+{
+  if (_lastUpdate.is_not_a_date_time())
+  {
+    _lastUpdate = _now;
+    return;
+  }
+
+  float delta = (_now - _lastUpdate).total_milliseconds() / 1000.0f;
+
+  // update all the bullets
+  for (auto it = _bullets.begin(); it != _bullets.end(); )
+  {
+    Bullet& b = *it;
+    b.pos = b.pos + 100 * delta * b.dir;
+    if (!IsValidPos(b.pos))
+    {
+      it = _bullets.erase(it);
+    }
+    else
+    {
+      bool collision = false;
+      // check for player collision
+      for (auto& kv : _entities)
+      {
+        Entity& e = kv.second;
+        if (SnappedPos(e._pos) == SnappedPos(b.pos))
+        {
+          collision = true;
+          e._alive = false;
+          break;
+        }
+      }
+
+      it = collision ? _bullets.erase(it) : ++it;
+    }
+  }
+
+  _lastUpdate = _now;
+}
 
 //----------------------------------------------------------------------------------
 void Game::HandleActions()
@@ -339,14 +387,33 @@ void Game::HandleActions()
   {
     u32 playerId = action->playerId;
 
+    bool instantAction = false;
+
     if (action->type == ActionType::Move)
     {
       // only allow a single in progress move action, so erase any in progress for
       // the current entity
       EraseMoveActions(playerId);
     }
+    else if (action->type == ActionType::Bullet)
+    {
+      ActionBullet* a = static_cast<ActionBullet*>(action);
+      Bullet b;
+      b.pos = a->pos;
+      b.dir = a->dir;
+      b.playerId = a->playerId;
+      _bullets.push_back(b);
+      instantAction = true;
+    }
 
-    _inprogressActions.push_back(action);
+    if (instantAction)
+    {
+      delete action;
+    }
+    else
+    {
+      _inprogressActions.push_back(action);
+    }
   }
 
   _actionQueue.clear();
@@ -398,6 +465,17 @@ void Game::Render()
 
     _renderWindow->draw(triangle);
   }
+
+  RectangleShape rect;
+  rect.setFillColor(Color::Red);
+  rect.setSize(Vector2f(6, 6));
+  Vector2f ofs(0, 3);
+
+  for (const Bullet& b : _bullets)
+  {
+    rect.setPosition(b.pos - ofs);
+    _renderWindow->draw(rect);
+  }
 }
 
 //----------------------------------------------------------------------------------
@@ -408,6 +486,7 @@ bool Game::Run()
     _now = microsec_clock::local_time();
     _renderWindow->clear();
     _eventManager->Poll();
+    Update();
     ReadKeyboard();
     DrawGrid();
     Render();

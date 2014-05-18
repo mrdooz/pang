@@ -5,10 +5,12 @@ namespace pang
 {
   struct Entity
   {
+    Entity();
     Vector2f _pos;
     // 0 points straight up
     float _rot;
     float _vel;
     u32 _id;
+    bool _alive;
   };
 }
