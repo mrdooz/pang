@@ -44,8 +44,11 @@ typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
 
+
 namespace pang
 {
+  extern const float PI;
+
   using std::atomic;
   using std::condition_variable;
   using std::count_if;

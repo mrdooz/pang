@@ -6,7 +6,9 @@ namespace pang
   struct Entity
   {
     Vector2f _pos;
-    Vector2f _dir;
+    // 0 points straight up
+    float _rot;
+    float _vel;
     u32 _id;
   };
 }

@@ -22,10 +22,76 @@ namespace
 
 
 //----------------------------------------------------------------------------------
+void Level::Init(u32 width, u32 height)
+{
+  _width = width;
+  _height = height;
+
+  _data.resize(_width * _height, 0);
+
+  // create some random blocks :)
+  for (u32 i = 0; i < 100; ++i)
+  {
+    u32 x = rand() % width;
+    u32 y = rand() % height;
+    Set(x, y, 1);
+  }
+
+  CreateTexture();
+}
+
+//----------------------------------------------------------------------------------
+bool Level::Idx(u32 x, u32 y, u32* idx)
+{
+  if (x >= _width || y >= _height)
+    return false;
+
+  *idx = y * _width + x;
+  return true;
+}
+
+//----------------------------------------------------------------------------------
+void Level::Set(u32 x, u32 y, u8 v)
+{
+  u32 idx;
+  if (Idx(x, y, &idx))
+    _data[idx] = v;
+}
+
+//----------------------------------------------------------------------------------
+u8 Level::Get(u32 x, u32 y)
+{
+  u32 idx;
+  return Idx(x, y, &idx) ? _data[idx] : 0xff;
+}
+
+//----------------------------------------------------------------------------------
+void Level::CreateTexture()
+{
+  _texture.create(_width, _height);
+
+  // create rgba texture
+  vector<Color> pixels(_width * _height);
+  Color* p = pixels.data();
+
+  for (u32 i = 0; i < _height; ++i)
+  {
+    for (u32 j = 0; j < _width; ++j)
+    {
+      *p++ = _data[i*_width+j] ? Color::White : Color::Black;
+    }
+  }
+
+  _texture.update((const u8*)pixels.data());
+}
+
+//----------------------------------------------------------------------------------
 Game::Game()
     : _gridSize(25)
     , _focus(true)
     , _done(false)
+    , _prevLeft(0)
+    , _prevRight(0)
 {
 }
 
@@ -57,6 +123,8 @@ bool Game::Init()
   {
     return false;
   }
+
+  _level.Init(100, 100);
 
   Entity& e = _entities[0];
   e._pos = Vector2f(100, 100);
@@ -94,50 +162,58 @@ Vector2f Game::ClampedDestination(const Vector2f& pos, const Vector2f& dir)
 }
 
 //----------------------------------------------------------------------------------
-bool Game::OnKeyPressed(const Event& event)
+void Game::ReadKeyboard()
 {
-  Keyboard::Key key = event.key.code;
-
   // 0 = no movement, 1 = x axis, 2 = y axis
   u32 moveAction = 0;
   Entity& e = _entities[0];
 
-  switch (key)
+  u8 curLeft = Keyboard::isKeyPressed(Keyboard::Left) || Keyboard::isKeyPressed(Keyboard::A);
+  u8 curRight = Keyboard::isKeyPressed(Keyboard::Right) || Keyboard::isKeyPressed(Keyboard::D);
+
+  if (curLeft && !_prevLeft)
   {
-    case Keyboard::Left:
-    case Keyboard::A:
-      e._dir.x = Clamp(e._dir.x - 1, -1.f, 1.f);
-      moveAction = 1;
-      break;
-
-    case Keyboard::Right:
-    case Keyboard::D:
-      e._dir.x = Clamp(e._dir.x + 1, -1.f, 1.f);
-      moveAction = 1;
-      break;
-
-    case Keyboard::Up:
-    case Keyboard::W:
-      e._dir.y = Clamp(e._dir.y - 1, -1.f, 1.f);
-      moveAction = 2;
-      break;
-
-    case Keyboard::Down:
-    case Keyboard::S:
-      e._dir.y = Clamp(e._dir.y + 1, -1.f, 1.f);
-      moveAction = 2;
-      break;
-
-    case Keyboard::Escape:
-      _done = true;
-      break;
+    e._rot += PI / 2;
+    moveAction = 1;
   }
+  else if (curRight && !_prevRight)
+  {
+    e._rot -= PI / 2;
+    moveAction = 1;
+  }
+  else if (Keyboard::isKeyPressed(Keyboard::Up) || Keyboard::isKeyPressed(Keyboard::W))
+  {
+    e._vel = Clamp(e._vel + 1, -1.f, 1.f);
+    moveAction = 2;
+  }
+  else if (Keyboard::isKeyPressed(Keyboard::Down) || Keyboard::isKeyPressed(Keyboard::S))
+  {
+    e._vel = Clamp(e._vel - 1, -1.f, 1.f);
+    moveAction = 2;
+  }
+
+  _prevLeft = curLeft;
+  _prevRight = curRight;
 
   if (moveAction)
   {
     // calc new destination based on current pos and direction
-    AddMoveAction(0, e._pos, ClampedDestination(e._pos, e._dir));
-//    e._dir = Vector2f(moveAction & 1 ? 0.f : e._dir.x, moveAction & 2 ? 0.f : e._dir.y);
+    AddMoveAction(0, e._pos, ClampedDestination(e._pos, e._vel * Vector2f(sinf(e._rot), cosf(e._rot))));
+  }
+
+}
+
+//----------------------------------------------------------------------------------
+bool Game::OnKeyPressed(const Event& event)
+{
+  Keyboard::Key key = event.key.code;
+  Entity& e = _entities[0];
+
+  switch (key)
+  {
+    case Keyboard::Escape:
+      _done = true;
+      break;
   }
 
   return true;
@@ -152,20 +228,28 @@ bool Game::OnKeyReleased(const Event& event)
 //----------------------------------------------------------------------------------
 void Game::DrawGrid()
 {
+  _levelSprite.setPosition(0, 0);
+  _levelSprite.setTexture(_level._texture);
+  _levelSprite.setScale(_gridSize, _gridSize);
+  _renderWindow->draw(_levelSprite);
+
+  Vector2u s = _renderWindow->getSize();
+
   vector<sf::Vertex> lines;
+  Color c(0x80, 0x80, 0x80);
 
   // horizontal
-  for (u32 i = 0; i < 11; ++i)
+  for (u32 i = 0; i <= s.y; i += _gridSize)
   {
-    lines.push_back(Vector2f(0, i*_gridSize));
-    lines.push_back(Vector2f(10 * _gridSize, i*_gridSize));
+    lines.push_back(sf::Vertex(Vector2f(0, i), c));
+    lines.push_back(sf::Vertex(Vector2f(s.x, i), c));
   }
 
   // vertical
-  for (u32 i = 0; i < 11; ++i)
+  for (u32 i = 0; i <= s.x; i += _gridSize)
   {
-    lines.push_back(Vector2f(i*_gridSize, 0));
-    lines.push_back(Vector2f(i*_gridSize, 10 * _gridSize));
+    lines.push_back(sf::Vertex(Vector2f(i, 0), c));
+    lines.push_back(sf::Vertex(Vector2f(i, s.y), c));
   }
 
   _renderWindow->draw(lines.data(), lines.size(), sf::Lines);
@@ -175,13 +259,8 @@ void Game::DrawGrid()
 //----------------------------------------------------------------------------------
 bool Game::IsValidPos(const Vector2f& p)
 {
-  if (p.x < 0 || p.x > 1000)
-    return false;
-
-  if (p.y < 0 || p.y > 1000)
-    return false;
-
-  return true;
+  u8 v = _level.Get(p.x / _gridSize, p.y / _gridSize);
+  return v == 0;
 }
 
 
@@ -189,7 +268,10 @@ bool Game::IsValidPos(const Vector2f& p)
 void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
 {
   if (!IsValidPos(from) || !IsValidPos(to))
+  {
+    _entities[playerId]._vel = 0;
     return;
+  }
 
   // check if a move action to the given location is already in progress
   for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
@@ -228,7 +310,7 @@ void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
   m->from = from;
   m->to = to;
   m->startTime = _now;
-  m->endTime = _now + seconds(1);
+  m->endTime = _now + milliseconds(500);
 }
 
 //----------------------------------------------------------------------------------
@@ -287,6 +369,7 @@ void Game::HandleActions()
       if (_now >= m->endTime)
       {
         deleteAction = true;
+        e._vel = 0;
         e._pos = m->to;
       }
     }
@@ -306,17 +389,15 @@ void Game::Render()
 
     VertexArray triangle(sf::Triangles, 3);
     Transform rotation;
-//    rotation.rotate(lp._rotation);
-    triangle[0].position = c + rotation.transformPoint(e._pos + Vector2f(0, 20));
-    triangle[1].position = c + rotation.transformPoint(e._pos + Vector2f(-10, 0));
-    triangle[2].position = c + rotation.transformPoint(e._pos + Vector2f(10, 0));
+    rotation.rotate(-e._rot * 180 / PI);
+    triangle[0].position = c + e._pos + rotation.transformPoint(Vector2f(0, 20));
+    triangle[1].position = c + e._pos + rotation.transformPoint(Vector2f(-5, 0));
+    triangle[2].position = c + e._pos + rotation.transformPoint(Vector2f(5, 0));
 
-    AddMessage(MessageType::Debug, toString("x: %f, y: %f", e._pos.x, e._pos.y));
+    AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
 
     _renderWindow->draw(triangle);
   }
-
-
 }
 
 //----------------------------------------------------------------------------------
@@ -327,6 +408,7 @@ bool Game::Run()
     _now = microsec_clock::local_time();
     _renderWindow->clear();
     _eventManager->Poll();
+    ReadKeyboard();
     DrawGrid();
     Render();
     UpdateMessages();
