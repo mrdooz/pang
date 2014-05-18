@@ -33,6 +33,9 @@ namespace pang
     void DrawGrid();
     void UpdateMessages();
 
+    Vector2f ClampedDestination(const Vector2f& pos, const Vector2f& dir);
+    Vector2f SnappedPos(const Vector2f& pos);
+
     bool OnLostFocus(const Event& event);
     bool OnGainedFocus(const Event& event);
     bool OnKeyPressed(const Event& event);

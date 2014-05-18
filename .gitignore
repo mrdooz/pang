@@ -1,4 +1,4 @@
-swarm.xcodeproj/*
+pang.xcodeproj/*
 Debug/
 Release/
 **/Debug_editor/*
@@ -29,17 +29,10 @@ ipch/
 *.dat
 *.filters
 *.aps
-_win32/My Inspector XE Results - kumi/*
-_win32/My Amplifier XE Results - kumi/*
-kumi_browser/.idea/
-effects/obj/*
-effects/obj_debug/*
 *.o
 *.gch
-roguelike
 .idea/*
 CMakeCache.txt
 CMakeFiles/*
 CMakeScripts/*
 cmake_install.cmake
-roguelike.xcodeproj/*

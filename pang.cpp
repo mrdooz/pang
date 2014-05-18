@@ -14,8 +14,8 @@ namespace
 
   Vector2f ClampVector(const Vector2f& v, float f)
   {
-    int x = v.x / f;
-    int y = v.y / f;
+    int x = (v.x + f / 2) / f;
+    int y = (v.y + f / 2) / f;
     return Vector2f(x * f, y * f);
   }
 }
@@ -79,36 +79,65 @@ bool Game::OnGainedFocus(const Event& event)
   return true;
 }
 
+Vector2f Game::SnappedPos(const Vector2f& pos)
+{
+  float f = _gridSize;
+  int x = (pos.x + f / 2) / f;
+  int y = (pos.y + f / 2) / f;
+  return Vector2f(x * f, y * f);
+}
+
+//----------------------------------------------------------------------------------
+Vector2f Game::ClampedDestination(const Vector2f& pos, const Vector2f& dir)
+{
+  return SnappedPos(pos + (float)_gridSize * dir);
+}
+
 //----------------------------------------------------------------------------------
 bool Game::OnKeyPressed(const Event& event)
 {
   Keyboard::Key key = event.key.code;
 
+  // 0 = no movement, 1 = x axis, 2 = y axis
+  u32 moveAction = 0;
   Entity& e = _entities[0];
-
-  float s = 25;
 
   switch (key)
   {
     case Keyboard::Left:
-      AddMoveAction(0, e._pos, ClampVector(e._pos + Vector2f(-s, 0), s));
+    case Keyboard::A:
+      e._dir.x = Clamp(e._dir.x - 1, -1.f, 1.f);
+      moveAction = 1;
       break;
 
     case Keyboard::Right:
-      AddMoveAction(0, e._pos, ClampVector(e._pos + Vector2f(+s, 0), s));
+    case Keyboard::D:
+      e._dir.x = Clamp(e._dir.x + 1, -1.f, 1.f);
+      moveAction = 1;
       break;
 
     case Keyboard::Up:
-      AddMoveAction(0, e._pos, ClampVector(e._pos + Vector2f(0, -s), s));
+    case Keyboard::W:
+      e._dir.y = Clamp(e._dir.y - 1, -1.f, 1.f);
+      moveAction = 2;
       break;
 
     case Keyboard::Down:
-      AddMoveAction(0, e._pos, ClampVector(e._pos + Vector2f(0, +s), s));
+    case Keyboard::S:
+      e._dir.y = Clamp(e._dir.y + 1, -1.f, 1.f);
+      moveAction = 2;
       break;
 
     case Keyboard::Escape:
       _done = true;
       break;
+  }
+
+  if (moveAction)
+  {
+    // calc new destination based on current pos and direction
+    AddMoveAction(0, e._pos, ClampedDestination(e._pos, e._dir));
+//    e._dir = Vector2f(moveAction & 1 ? 0.f : e._dir.x, moveAction & 2 ? 0.f : e._dir.y);
   }
 
   return true;
@@ -120,6 +149,7 @@ bool Game::OnKeyReleased(const Event& event)
   return true;
 }
 
+//----------------------------------------------------------------------------------
 void Game::DrawGrid()
 {
   vector<sf::Vertex> lines;
@@ -322,7 +352,7 @@ void Game::AddMessage(MessageType type, const string& str)
 
   if (type == MessageType::Debug)
   {
-    u8 c = 255 * 0.8f;
+    u8 c = (u8)(255 * 0.8f);
     msg.color = Color(c, c, c);
   }
   else if (type == MessageType::Info)
@@ -388,10 +418,9 @@ void Game::UpdateMessages()
   }
 }
 
-
+//------------------------------------------------------------------------------
 int main(int argc, char* argv[])
 {
-
   Game game;
 
   if (!game.Init())
