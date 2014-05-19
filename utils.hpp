@@ -77,6 +77,18 @@ namespace pang
     return len > 0 ? 1/len * a : sf::Vector2<T>(0,0);
   }
 
+  template <typename T>
+  void Normalize(sf::Vector2<T>& a)
+  {
+    float len = Length(a);
+    if (len != 0)
+    {
+      T recip = 1/len;
+      a.x *= recip;
+      a.y *= recip;
+    }
+  }
+
   inline int IntAbs(int a)
   {
     return a > 0 ? a : -a;

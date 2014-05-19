@@ -20,6 +20,8 @@
 #include <sys/stat.h>
 #include <stdio.h>
 
+#include <google/protobuf/text_format.h>
+
 #define BOOST_ALL_NO_LIB
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/date_time.hpp>

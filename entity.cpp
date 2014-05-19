@@ -3,6 +3,7 @@
 using namespace pang;
 
 Entity::Entity()
-    : _alive(true)
+    : _rot(0)
+    , _vel(0)
 {
 }

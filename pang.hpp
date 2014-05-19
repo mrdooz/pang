@@ -1,5 +1,7 @@
 #pragma once
 #include "entity.hpp"
+#include "level.hpp"
+#include "protocol/game.pb.h"
 
 namespace pang
 {
@@ -14,21 +16,6 @@ namespace pang
     Error,
   };
 
-  struct Level
-  {
-    Level() : _width(0), _height(0) {}
-
-    void Init(u32 width, u32 height);
-    void Set(u32 x, u32 y, u8 v);
-    u8 Get(u32 x, u32 y);
-    void CreateTexture();
-
-    bool Idx(u32 x, u32 y, u32* idx);
-
-    Texture _texture;
-    u32 _width, _height;
-    vector<u8> _data;
-  };
 
   struct Bullet
   {
@@ -57,6 +44,10 @@ namespace pang
     void UpdateMessages();
     void Update();
 
+    void SpawnEnemies();
+    void UpdateEnemies();
+    bool SpawnBullet(Entity& e);
+
     Vector2f ClampedDestination(const Vector2f& pos, const Vector2f& dir);
     Vector2f SnappedPos(const Vector2f& pos);
 
@@ -74,24 +65,32 @@ namespace pang
       Color color;
     };
 
+    pang::config::Game _gameConfig;
+
     unique_ptr<RenderWindow> _renderWindow;
     unique_ptr<WindowEventManager> _eventManager;
 
     deque<ActionBase*> _actionQueue;
     deque<ActionBase*> _inprogressActions;
     unordered_map<u32, Entity > _entities;
+    unordered_map<u32, Entity > _deadEntites;
 
     Level _level;
     Sprite _levelSprite;
+    View _view;
 
     vector<Bullet> _bullets;
     vector<Message> _messages;
     Font _font;
     u32 _gridSize;
+    u32 _debugDraw;
     bool _focus;
     bool _done;
+    bool _playerDead;
     ptime _now;
     ptime _lastUpdate;
+
+    u32 _localPlayerId;
 
     u8 _prevLeft, _prevRight;
   };

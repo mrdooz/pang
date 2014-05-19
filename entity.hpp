@@ -7,10 +7,10 @@ namespace pang
   {
     Entity();
     Vector2f _pos;
+    ptime _lastAction;
     // 0 points straight up
     float _rot;
     float _vel;
     u32 _id;
-    bool _alive;
   };
 }

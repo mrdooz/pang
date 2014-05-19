@@ -5,77 +5,85 @@
 
 using namespace pang;
 
-//----------------------------------------------------------------------------------
-void Level::Init(u32 width, u32 height)
+template <typename T>
+bool LoadProto(const char* filename, T* out)
 {
-  _width = width;
-  _height = height;
-
-  _data.resize(_width * _height, 0);
-
-  // create some random blocks :)
-  for (u32 i = 0; i < 100; ++i)
-  {
-    u32 x = rand() % width;
-    u32 y = rand() % height;
-    Set(x, y, 1);
-  }
-
-  CreateTexture();
-}
-
-//----------------------------------------------------------------------------------
-bool Level::Idx(u32 x, u32 y, u32* idx)
-{
-  if (x >= _width || y >= _height)
+  FILE* f = fopen(filename, "rb");
+  if (!f)
     return false;
 
-  *idx = y * _width + x;
-  return true;
+  fseek(f, 0, 2);
+  long s = ftell(f);
+  fseek(f, 0, 0);
+  string str;
+  str.resize(s);
+  fread((char*)str.c_str(), 1, s, f);
+  fclose(f);
+
+  return google::protobuf::TextFormat::ParseFromString(str, out);
 }
 
-//----------------------------------------------------------------------------------
-void Level::Set(u32 x, u32 y, u8 v)
+void Line(int x0, int y0, int x1, int y1, vector<Vector2i>* line)
 {
-  u32 idx;
-  if (Idx(x, y, &idx))
-    _data[idx] = v;
-}
+  line->clear();
 
-//----------------------------------------------------------------------------------
-u8 Level::Get(u32 x, u32 y)
-{
-  u32 idx;
-  return Idx(x, y, &idx) ? _data[idx] : 0xff;
-}
+  // Bresenham between the points
+  int dx = abs(x1-x0);
+  int sx = x0 < x1 ? 1 : -1;
+  int dy = abs(y1-y0);
+  int sy = y0 < y1 ? 1 : -1;
 
-//----------------------------------------------------------------------------------
-void Level::CreateTexture()
-{
-  _texture.create(_width, _height);
-
-  // create rgba texture
-  vector<Color> pixels(_width * _height);
-  Color* p = pixels.data();
-
-  for (u32 i = 0; i < _height; ++i)
+  if (dx > dy)
   {
-    for (u32 j = 0; j < _width; ++j)
+    int ofs = 0;
+    int threshold = dx;
+    while (true)
     {
-      *p++ = _data[i*_width+j] ? Color::White : Color::Black;
+      line->push_back(Vector2i(x0,y0));
+      if (x0 == x1)
+        break;
+
+      ofs += 2 * dy;
+      if (ofs >= threshold)
+      {
+        y0 += sy;
+        threshold += 2 * dx;
+      }
+      x0 += sx;
     }
   }
+  else
+  {
+    int ofs = 0;
+    int threshold = dy;
+    while (true)
+    {
+      line->push_back(Vector2i(x0,y0));
+      if (y0 == y1)
+        break;
 
-  _texture.update((const u8*)pixels.data());
+      ofs += 2 * dx;
+      if (ofs >= threshold)
+      {
+        x0 += sx;
+        threshold += 2 * dy;
+      }
+      y0 += sy;
+    }
+  }
 }
+
 
 //----------------------------------------------------------------------------------
 Game::Game()
     : _gridSize(25)
     , _focus(true)
     , _done(false)
+    , _localPlayerId(0)
     , _prevLeft(0)
     , _prevRight(0)
+    , _debugDraw(0)
+    , _playerDead(false)
 {
 }
 
@@ -108,14 +116,81 @@ bool Game::Init()
     return false;
   }
 
-  _level.Init(100, 100);
+  if (!LoadProto((base + "config/game.pb").c_str(), &_gameConfig))
+    return 1;
 
-  Entity& e = _entities[0];
-  e._pos = Vector2f(100, 100);
-  e._id = 0;
+  _level.Init(_gameConfig.width(), _gameConfig.height());
+
+  Entity& e = _entities[_localPlayerId];
+  e._id = _localPlayerId;
+  while (true)
+  {
+    Vector2f pos(rand() % _level._width, rand() % _level._height);
+    pos = (float)_gridSize * pos;
+    if (IsValidPos(pos))
+    {
+      e._pos = pos;
+      break;
+    }
+  }
+
+  SpawnEnemies();
 
   return true;
 }
+
+//----------------------------------------------------------------------------------
+void Game::SpawnEnemies()
+{
+  for (u32 i = 0; i < _gameConfig.num_enemies(); ++i)
+  {
+    u32 idx = _localPlayerId + 1 + i;
+    Entity& e = _entities[idx];
+    e._id = idx;
+    while (true)
+    {
+      Vector2f pos(rand() % _level._width, rand() % _level._height);
+      pos = (float)_gridSize * pos;
+      if (IsValidPos(pos))
+      {
+        e._pos = pos;
+        break;
+      }
+      e._rot = 0;
+      e._vel = 0;
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------
+void Game::UpdateEnemies()
+{
+  if (_playerDead)
+    return;
+
+  Vector2f playerPos(_entities[_localPlayerId]._pos);
+
+  for (auto& kv : _entities)
+  {
+    Entity& e = kv.second;
+    if (e._id == _localPlayerId)
+      continue;
+
+    // turn towards player
+    Vector2f dir = (playerPos - e._pos);
+    Normalize(dir);
+
+    float a = atan2f(dir.x, dir.y);
+    e._rot = a;
+    AddMessage(MessageType::Debug, toString("dx: %.2f, dy: %.2f, a: %.2f", dir.x, dir.y, a));
+    AddMoveAction(e._id, e._pos, e._pos + (float)_gridSize * dir);
+
+    // dot(a,b) = cos(a/b) * ||a|| * ||b||
+
+    //SpawnBullet(e);
+  }
+}
+
 
 //----------------------------------------------------------------------------------
 bool Game::OnLostFocus(const Event& event)
@@ -148,9 +223,13 @@ Vector2f Game::ClampedDestination(const Vector2f& pos, const Vector2f& dir)
 //----------------------------------------------------------------------------------
 void Game::ReadKeyboard()
 {
+  if (_playerDead)
+    return;
+
+  Entity& e = _entities[_localPlayerId];
+
   // 0 = no movement, 1 = x axis, 2 = y axis
   u32 moveAction = 0;
-  Entity& e = _entities[0];
 
   u8 curLeft = Keyboard::isKeyPressed(Keyboard::Left) || Keyboard::isKeyPressed(Keyboard::A);
   u8 curRight = Keyboard::isKeyPressed(Keyboard::Right) || Keyboard::isKeyPressed(Keyboard::D);
@@ -188,33 +267,58 @@ void Game::ReadKeyboard()
 }
 
 //----------------------------------------------------------------------------------
+bool Game::SpawnBullet(Entity& e)
+{
+  if (e._lastAction.is_not_a_date_time())
+  {
+    e._lastAction = _now;
+  }
+  else if (_now - e._lastAction < seconds(1))
+  {
+    return false;
+  }
+
+  e._lastAction = _now;
+
+  Vector2f c(_gridSize/2, _gridSize/2);
+
+  Vector2f dir = Vector2f(sinf(e._rot), cosf(e._rot));
+  Vector2f pos = SnappedPos(e._pos) + c + (float)_gridSize * dir;
+  if (IsValidPos(pos))
+  {
+    ActionBullet* b = new ActionBullet();
+    b->playerId = e._id;
+    b->pos = pos;
+    b->dir = dir;
+    _actionQueue.push_back(b);
+  }
+
+  return true;
+}
+
+//----------------------------------------------------------------------------------
 bool Game::OnKeyPressed(const Event& event)
 {
   Keyboard::Key key = event.key.code;
-  Entity& e = _entities[0];
-  Vector2f c(_gridSize/2, _gridSize/2);
+
+  if (_playerDead)
+  {
+    switch (key)
+    {
+      case Keyboard::Escape:
+        _done = true;
+        break;
+    }
+    return true;
+  }
+
+  Entity& e = _entities[_localPlayerId];
 
   switch (key)
   {
     case Keyboard::Space:
     {
-      Vector2f dir = Vector2f(sinf(e._rot), cosf(e._rot));
-      Vector2f pos = e._pos + c + (float)_gridSize * dir;
-      if (IsValidPos(pos))
-      {
-        ActionBullet* b = new ActionBullet();
-        b->playerId = e._id;
-        b->pos = pos;
-        b->dir = dir;
-        _actionQueue.push_back(b);
-      }
-/*
-      Bullet b;
-      b.dir = Vector2f(sinf(e._rot), cosf(e._rot));
-      b.pos = e._pos + c + (float)_gridSize * b.dir;
-      b.playerId = e._id;
-      _bullets.push_back(b);
-*/
+      SpawnBullet(e);
       break;
     }
 
@@ -240,23 +344,21 @@ void Game::DrawGrid()
   _levelSprite.setScale(_gridSize, _gridSize);
   _renderWindow->draw(_levelSprite);
 
-  Vector2u s = _renderWindow->getSize();
-
   vector<sf::Vertex> lines;
   Color c(0x80, 0x80, 0x80);
 
   // horizontal
-  for (u32 i = 0; i <= s.y; i += _gridSize)
+  for (u32 i = 0; i <= _level._height; ++i)
   {
-    lines.push_back(sf::Vertex(Vector2f(0, i), c));
-    lines.push_back(sf::Vertex(Vector2f(s.x, i), c));
+    lines.push_back(sf::Vertex(Vector2f(0, i*_gridSize), c));
+    lines.push_back(sf::Vertex(Vector2f(_level._width*_gridSize, i*_gridSize), c));
   }
 
   // vertical
-  for (u32 i = 0; i <= s.x; i += _gridSize)
+  for (u32 i = 0; i <= _level._width; ++i)
   {
-    lines.push_back(sf::Vertex(Vector2f(i, 0), c));
-    lines.push_back(sf::Vertex(Vector2f(i, s.y), c));
+    lines.push_back(sf::Vertex(Vector2f(i*_gridSize, 0), c));
+    lines.push_back(sf::Vertex(Vector2f(i*_gridSize, _level._height*_gridSize), c));
   }
 
   _renderWindow->draw(lines.data(), lines.size(), sf::Lines);
@@ -340,6 +442,12 @@ void Game::EraseMoveActions(u32 playerId)
 //----------------------------------------------------------------------------------
 void Game::Update()
 {
+  _now = microsec_clock::local_time();
+  _eventManager->Poll();
+
+  ReadKeyboard();
+  HandleActions();
+
   if (_lastUpdate.is_not_a_date_time())
   {
     _lastUpdate = _now;
@@ -361,20 +469,29 @@ void Game::Update()
     {
       bool collision = false;
       // check for player collision
-      for (auto& kv : _entities)
+      for (auto it = _entities.begin(); it != _entities.end(); )
       {
-        Entity& e = kv.second;
-        if (SnappedPos(e._pos) == SnappedPos(b.pos))
+        Entity& e = it->second;
+        if (e._id != b.playerId && SnappedPos(e._pos) == SnappedPos(b.pos))
         {
           collision = true;
-          e._alive = false;
+          if (e._id == _localPlayerId)
+            _playerDead = true;
+          _deadEntites[e._id] = e;
+          _entities.erase(it);
           break;
+        }
+        else
+        {
+          ++it;
         }
       }
 
       it = collision ? _bullets.erase(it) : ++it;
     }
   }
+
+  UpdateEnemies();
 
   _lastUpdate = _now;
 }
@@ -406,6 +523,8 @@ void Game::HandleActions()
       instantAction = true;
     }
 
+    // Either delete the action if it was instant, or move it to
+    // _inprogressActions if it has a duration
     if (instantAction)
     {
       delete action;
@@ -448,22 +567,45 @@ void Game::HandleActions()
 //----------------------------------------------------------------------------------
 void Game::Render()
 {
+  _renderWindow->clear();
+
+  if (!_playerDead)
+  {
+    Vector2u s = _renderWindow->getSize();
+    _view.setCenter(_entities[_localPlayerId]._pos);
+    _view.setRotation(0);
+    _view.setSize(s.x, s.y);
+    _renderWindow->setView(_view);
+  }
+
+  DrawGrid();
+
   Vector2f c(_gridSize/2, _gridSize/2);
 
   for (const auto& kv : _entities)
   {
     const Entity& e = kv.second;
-
     VertexArray triangle(sf::Triangles, 3);
     Transform rotation;
+    Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
     rotation.rotate(-e._rot * 180 / PI);
     triangle[0].position = c + e._pos + rotation.transformPoint(Vector2f(0, 20));
+    triangle[0].color = col;
     triangle[1].position = c + e._pos + rotation.transformPoint(Vector2f(-5, 0));
+    triangle[1].color = col;
     triangle[2].position = c + e._pos + rotation.transformPoint(Vector2f(5, 0));
-
-    AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
-
+    triangle[2].color = col;
     _renderWindow->draw(triangle);
+
+    if (e._id == _localPlayerId)
+    {
+      AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
+    }
+  }
+
+  if (_playerDead)
+  {
+    AddMessage(MessageType::Debug, "** GAME OVER **");
   }
 
   RectangleShape rect;
@@ -476,6 +618,33 @@ void Game::Render()
     rect.setPosition(b.pos - ofs);
     _renderWindow->draw(rect);
   }
+
+  if (_debugDraw & 0x1)
+  {
+    rect.setFillColor(Color(0x80, 0x80, 0, 0x80));
+    rect.setSize(Vector2f(_gridSize, _gridSize));
+
+    Vector2f localPos(_entities[_localPlayerId]._pos);
+
+    for (const auto& kv : _entities)
+    {
+      const Entity& e = kv.second;
+      if (e._id == _localPlayerId)
+        continue;
+
+      vector<Vector2i> p;
+      Line(e._pos.x / _gridSize, e._pos.y / _gridSize, localPos.x / _gridSize, localPos.y / _gridSize, &p);
+
+      for (const Vector2i& x : p)
+      {
+        rect.setPosition(_gridSize * x.x, _gridSize * x.y);
+        _renderWindow->draw(rect);
+      }
+    }
+  }
+
+  UpdateMessages();
+  _renderWindow->display();
 }
 
 //----------------------------------------------------------------------------------
@@ -483,17 +652,8 @@ bool Game::Run()
 {
   while (_renderWindow->isOpen() && !_done)
   {
-    _now = microsec_clock::local_time();
-    _renderWindow->clear();
-    _eventManager->Poll();
     Update();
-    ReadKeyboard();
-    DrawGrid();
     Render();
-    UpdateMessages();
-    HandleActions();
-
-    _renderWindow->display();
   }
 
   return true;
@@ -542,8 +702,9 @@ void Game::UpdateMessages()
 {
   ptime now = microsec_clock::local_time();
 
-  float x = 300;
-  float y = 0;
+  Vector2f center = _renderWindow->getView().getCenter();
+  float x = center.x + 300;
+  float y = center.y + 0;
 
   Text text;
   text.setFont(_font);
