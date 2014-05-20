@@ -5,4 +5,7 @@ message Game
   optional int32 width = 1;
   optional int32 height = 2;
   optional int32 num_enemies = 3;
+
+  optional int32 num_walls = 4;
+  optional float max_wall_size = 5;
 }

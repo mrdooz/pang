@@ -35,10 +35,12 @@ void protobuf_AssignDesc_game_2eproto() {
       "game.proto");
   GOOGLE_CHECK(file != NULL);
   Game_descriptor_ = file->message_type(0);
-  static const int Game_offsets_[3] = {
+  static const int Game_offsets_[5] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, width_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, height_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, num_enemies_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, num_walls_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, max_wall_size_),
   };
   Game_reflection_ =
     new ::google::protobuf::internal::GeneratedMessageReflection(
@@ -81,9 +83,10 @@ void protobuf_AddDesc_game_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
-    "\n\ngame.proto\022\013pang.config\":\n\004Game\022\r\n\005wid"
+    "\n\ngame.proto\022\013pang.config\"d\n\004Game\022\r\n\005wid"
     "th\030\001 \001(\005\022\016\n\006height\030\002 \001(\005\022\023\n\013num_enemies\030"
-    "\003 \001(\005", 85);
+    "\003 \001(\005\022\021\n\tnum_walls\030\004 \001(\005\022\025\n\rmax_wall_siz"
+    "e\030\005 \001(\002", 127);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "game.proto", &protobuf_RegisterTypes);
   Game::default_instance_ = new Game();
@@ -104,6 +107,8 @@ struct StaticDescriptorInitializer_game_2eproto {
 const int Game::kWidthFieldNumber;
 const int Game::kHeightFieldNumber;
 const int Game::kNumEnemiesFieldNumber;
+const int Game::kNumWallsFieldNumber;
+const int Game::kMaxWallSizeFieldNumber;
 #endif  // !_MSC_VER
 
 Game::Game()
@@ -125,6 +130,8 @@ void Game::SharedCtor() {
   width_ = 0;
   height_ = 0;
   num_enemies_ = 0;
+  num_walls_ = 0;
+  max_wall_size_ = 0;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -163,6 +170,8 @@ void Game::Clear() {
     width_ = 0;
     height_ = 0;
     num_enemies_ = 0;
+    num_walls_ = 0;
+    max_wall_size_ = 0;
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
   mutable_unknown_fields()->Clear();
@@ -217,6 +226,38 @@ bool Game::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
+        if (input->ExpectTag(32)) goto parse_num_walls;
+        break;
+      }
+
+      // optional int32 num_walls = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_num_walls:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &num_walls_)));
+          set_has_num_walls();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(45)) goto parse_max_wall_size;
+        break;
+      }
+
+      // optional float max_wall_size = 5;
+      case 5: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32) {
+         parse_max_wall_size:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   float, ::google::protobuf::internal::WireFormatLite::TYPE_FLOAT>(
+                 input, &max_wall_size_)));
+          set_has_max_wall_size();
+        } else {
+          goto handle_uninterpreted;
+        }
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -254,6 +295,16 @@ void Game::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->num_enemies(), output);
   }
 
+  // optional int32 num_walls = 4;
+  if (has_num_walls()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(4, this->num_walls(), output);
+  }
+
+  // optional float max_wall_size = 5;
+  if (has_max_wall_size()) {
+    ::google::protobuf::internal::WireFormatLite::WriteFloat(5, this->max_wall_size(), output);
+  }
+
   if (!unknown_fields().empty()) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         unknown_fields(), output);
@@ -275,6 +326,16 @@ void Game::SerializeWithCachedSizes(
   // optional int32 num_enemies = 3;
   if (has_num_enemies()) {
     target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(3, this->num_enemies(), target);
+  }
+
+  // optional int32 num_walls = 4;
+  if (has_num_walls()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(4, this->num_walls(), target);
+  }
+
+  // optional float max_wall_size = 5;
+  if (has_max_wall_size()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteFloatToArray(5, this->max_wall_size(), target);
   }
 
   if (!unknown_fields().empty()) {
@@ -307,6 +368,18 @@ int Game::ByteSize() const {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int32Size(
           this->num_enemies());
+    }
+
+    // optional int32 num_walls = 4;
+    if (has_num_walls()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int32Size(
+          this->num_walls());
+    }
+
+    // optional float max_wall_size = 5;
+    if (has_max_wall_size()) {
+      total_size += 1 + 4;
     }
 
   }
@@ -345,6 +418,12 @@ void Game::MergeFrom(const Game& from) {
     if (from.has_num_enemies()) {
       set_num_enemies(from.num_enemies());
     }
+    if (from.has_num_walls()) {
+      set_num_walls(from.num_walls());
+    }
+    if (from.has_max_wall_size()) {
+      set_max_wall_size(from.max_wall_size());
+    }
   }
   mutable_unknown_fields()->MergeFrom(from.unknown_fields());
 }
@@ -371,6 +450,8 @@ void Game::Swap(Game* other) {
     std::swap(width_, other->width_);
     std::swap(height_, other->height_);
     std::swap(num_enemies_, other->num_enemies_);
+    std::swap(num_walls_, other->num_walls_);
+    std::swap(max_wall_size_, other->max_wall_size_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     _unknown_fields_.Swap(&other->_unknown_fields_);
     std::swap(_cached_size_, other->_cached_size_);

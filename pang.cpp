@@ -13,7 +13,7 @@ bool LoadProto(const char* filename, T* out)
     return false;
 
   fseek(f, 0, 2);
-  long s = ftell(f);
+  size_t s = ftell(f);
   fseek(f, 0, 0);
   string str;
   str.resize(s);
@@ -119,24 +119,30 @@ bool Game::Init()
   if (!LoadProto((base + "config/game.pb").c_str(), &_gameConfig))
     return 1;
 
-  _level.Init(_gameConfig.width(), _gameConfig.height());
+  _level.Init(_gameConfig);
 
   Entity& e = _entities[_localPlayerId];
   e._id = _localPlayerId;
+  e._pos = GetEmptyPos();
+
+  SpawnEnemies();
+
+  return true;
+}
+
+//----------------------------------------------------------------------------------
+Vector2f Game::GetEmptyPos() const
+{
   while (true)
   {
     Vector2f pos(rand() % _level._width, rand() % _level._height);
     pos = (float)_gridSize * pos;
     if (IsValidPos(pos))
     {
-      e._pos = pos;
-      break;
+      return pos;
     }
   }
-
-  SpawnEnemies();
-
-  return true;
+  return Vector2f(0,0);
 }
 
 //----------------------------------------------------------------------------------
@@ -147,18 +153,7 @@ void Game::SpawnEnemies()
     u32 idx = _localPlayerId + 1 + i;
     Entity& e = _entities[idx];
     e._id = idx;
-    while (true)
-    {
-      Vector2f pos(rand() % _level._width, rand() % _level._height);
-      pos = (float)_gridSize * pos;
-      if (IsValidPos(pos))
-      {
-        e._pos = pos;
-        break;
-      }
-      e._rot = 0;
-      e._vel = 0;
-    }
+    e._pos = GetEmptyPos();
   }
 }
 
@@ -182,10 +177,10 @@ void Game::UpdateEnemies()
 
     float a = atan2f(dir.x, dir.y);
     e._rot = a;
-    AddMessage(MessageType::Debug, toString("dx: %.2f, dy: %.2f, a: %.2f", dir.x, dir.y, a));
     AddMoveAction(e._id, e._pos, e._pos + (float)_gridSize * dir);
 
-    // dot(a,b) = cos(a/b) * ||a|| * ||b||
+    if (_debugDraw & 2)
+      AddMessage(MessageType::Debug, toString("dx: %.2f, dy: %.2f, a: %.2f", dir.x, dir.y, a));
 
     //SpawnBullet(e);
   }
@@ -366,12 +361,11 @@ void Game::DrawGrid()
 }
 
 //----------------------------------------------------------------------------------
-bool Game::IsValidPos(const Vector2f& p)
+bool Game::IsValidPos(const Vector2f& p) const
 {
   u8 v = _level.Get(p.x / _gridSize, p.y / _gridSize);
   return v == 0;
 }
-
 
 //----------------------------------------------------------------------------------
 void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
@@ -590,7 +584,7 @@ void Game::Render()
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
     rotation.rotate(-e._rot * 180 / PI);
     triangle[0].position = c + e._pos + rotation.transformPoint(Vector2f(0, 20));
-    triangle[0].color = col;
+    triangle[0].color = Color::Red;
     triangle[1].position = c + e._pos + rotation.transformPoint(Vector2f(-5, 0));
     triangle[1].color = col;
     triangle[2].position = c + e._pos + rotation.transformPoint(Vector2f(5, 0));

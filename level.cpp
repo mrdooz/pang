@@ -1,28 +1,41 @@
 #include "level.hpp"
+#include "protocol/game.pb.h"
 
 using namespace pang;
 
 //----------------------------------------------------------------------------------
-void Level::Init(u32 width, u32 height)
+void Level::Init(const config::Game& config)
 {
-  _width = width;
-  _height = height;
+  _width = config.width();
+  _height = config.height();
 
   _data.resize(_width * _height, 0);
 
+  Vector2i ofs[] = { Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1) };
+
   // create some random blocks :)
-  for (u32 i = 0; i < 10; ++i)
+  for (u32 i = 0; i < config.num_walls(); ++i)
   {
-    u32 x = rand() % width;
-    u32 y = rand() % height;
-    Set(x, y, 1);
+    Vector2i c(rand() % _width, rand() % _height);
+
+    // flood fill out from the center block
+    u32 s = rand() % (u32)(config.max_wall_size() * min(_width, _height));
+    Vector2i dir = ofs[rand() % 4];
+    for (u32 j = 0; j < s; ++j)
+    {
+      if (Get(c.x, c.y) == 0)
+      {
+        Set(c.x, c.y, 1);
+      }
+      c += dir;
+    }
   }
 
   CreateTexture();
 }
 
 //----------------------------------------------------------------------------------
-bool Level::Idx(u32 x, u32 y, u32* idx)
+bool Level::Idx(u32 x, u32 y, u32* idx) const
 {
   if (x >= _width || y >= _height)
     return false;
@@ -40,7 +53,7 @@ void Level::Set(u32 x, u32 y, u8 v)
 }
 
 //----------------------------------------------------------------------------------
-u8 Level::Get(u32 x, u32 y)
+u8 Level::Get(u32 x, u32 y) const
 {
   u32 idx;
   return Idx(x, y, &idx) ? _data[idx] : 0xff;

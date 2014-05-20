@@ -38,7 +38,8 @@ namespace pang
     void Render();
     void HandleActions();
     void EraseMoveActions(u32 playerId);
-    bool IsValidPos(const Vector2f& p);
+    Vector2f GetEmptyPos() const;
+    bool IsValidPos(const Vector2f& p) const;
     void AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to);
     void DrawGrid();
     void UpdateMessages();
