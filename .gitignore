@@ -36,3 +36,5 @@ CMakeCache.txt
 CMakeFiles/*
 CMakeScripts/*
 cmake_install.cmake
+*.sln
+*.vcxproj
