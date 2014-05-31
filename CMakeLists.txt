@@ -2,8 +2,6 @@ cmake_minimum_required (VERSION 2.6)
 
 project (pang)
 
-set(COMMON_FLAGS "-Wno-switch-enum")
-
 include(FindProtobuf)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules" ${CMAKE_MODULE_PATH})
@@ -22,6 +20,7 @@ add_executable(pang ${SRC})
 
 if (APPLE)
   # change c++ standard library to libc++ (llvm)
+  set(COMMON_FLAGS "-Wno-switch-enum")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -v -std=c++11 -stdlib=libc++")
   find_library(APP_SERVICES ApplicationServices)
   set_target_properties(
@@ -33,7 +32,7 @@ if (APPLE)
   set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 
   # specifically link against a protobuf and boost build with libc++
-  target_link_libraries(pang 
+  target_link_libraries(${PROJECT_NAME}
     ${SFML_LIBRARIES} 
     "/opt/local/boost/lib/libboost_date_time.a" 
     "/opt/local/protobuf/lib/libprotobuf.a" 

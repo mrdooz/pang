@@ -110,7 +110,11 @@ bool Game::Init()
   _eventManager->RegisterHandler(Event::LostFocus, bind(&Game::OnLostFocus, this, _1));
   _eventManager->RegisterHandler(Event::GainedFocus, bind(&Game::OnGainedFocus, this, _1));
 
+#ifdef WIN32
+  string base("d:/projects/pang/");
+#else
   string base("/Users/dooz/projects/pang/");
+#endif
   if (!_font.loadFromFile(base + "gfx/04b_03b_.ttf"))
   {
     return false;
