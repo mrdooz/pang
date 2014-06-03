@@ -181,6 +181,10 @@ void Game::UpdateEnemies()
 
     float a = atan2f(dir.x, dir.y);
     e._rot = a;
+
+    Vector2f dest(e._pos + (float)_gridSize * dir);
+    // don't move if we'll hit another player
+
     AddMoveAction(e._id, e._pos, e._pos + (float)_gridSize * dir);
 
     if (_debugDraw & 2)

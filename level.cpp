@@ -9,7 +9,7 @@ void Level::Init(const config::Game& config)
   _width = config.width();
   _height = config.height();
 
-  _data.resize(_width * _height, 0);
+  _data.resize(_width * _height);
 
   Vector2i ofs[] = { Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1) };
 
@@ -45,18 +45,32 @@ bool Level::Idx(u32 x, u32 y, u32* idx) const
 }
 
 //----------------------------------------------------------------------------------
-void Level::Set(u32 x, u32 y, u8 v)
+void Level::SetPlayer(u32 x, u32 y, u32 playerId)
 {
   u32 idx;
   if (Idx(x, y, &idx))
-    _data[idx] = v;
+    _data[idx].background = playerId;
 }
 
 //----------------------------------------------------------------------------------
-u8 Level::Get(u32 x, u32 y) const
+u32 Level::GetPlayer(u32 x, u32 y) const
+{
+
+}
+
+//----------------------------------------------------------------------------------
+void Level::SetBackground(u32 x, u32 y, u8 v)
 {
   u32 idx;
-  return Idx(x, y, &idx) ? _data[idx] : 0xff;
+  if (Idx(x, y, &idx))
+    _data[idx].background = v;
+}
+
+//----------------------------------------------------------------------------------
+u8 Level::GetBackground(u32 x, u32 y) const
+{
+  u32 idx;
+  return Idx(x, y, &idx) ? _data[idx].background : 0xff;
 }
 
 //----------------------------------------------------------------------------------
@@ -72,7 +86,7 @@ void Level::CreateTexture()
   {
     for (u32 j = 0; j < _width; ++j)
     {
-      *p++ = _data[i*_width+j] ? Color::White : Color::Black;
+      *p++ = _data[i*_width+j].background ? Color::White : Color::Black;
     }
   }
 

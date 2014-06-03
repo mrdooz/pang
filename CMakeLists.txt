@@ -5,7 +5,9 @@ project (pang)
 include(FindProtobuf)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules" ${CMAKE_MODULE_PATH})
-set(SFML_STATIC_LIBRARIES TRUE)
+if (MSVC)
+  set(SFML_STATIC_LIBRARIES TRUE)
+endif()
 find_package(SFML 2 REQUIRED system window graphics)
 find_package(Boost REQUIRED)
 find_package(Protobuf REQUIRED)
@@ -33,9 +35,9 @@ if (APPLE)
 
   # specifically link against a protobuf and boost build with libc++
   target_link_libraries(${PROJECT_NAME}
-    ${SFML_LIBRARIES} 
-    "/opt/local/boost/lib/libboost_date_time.a" 
-    "/opt/local/protobuf/lib/libprotobuf.a" 
+    ${SFML_LIBRARIES}
+    "/opt/local/boost/lib/libboost_date_time.a"
+    "/opt/local/protobuf/lib/libprotobuf.a"
     ${APP_SERVICES} )
 else()
   if (MSVC)
@@ -45,22 +47,22 @@ else()
     # add precompiled header, and force include it on all the root level .cpp files
     foreach( src_file ${ROOT_SRC} )
         set_source_files_properties(${src_file} PROPERTIES COMPILE_FLAGS "/Yuprecompiled.hpp /FIprecompiled.hpp")
-    endforeach( src_file ${ROOT_SRC} )    
-    
+    endforeach( src_file ${ROOT_SRC} )
+
     set_source_files_properties(precompiled.cpp PROPERTIES COMPILE_FLAGS "/Ycprecompiled.hpp")
-    
+
     # Force static runtime libraries
     foreach(flag CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_DEBUG)
       STRING(REPLACE "/MD"  "/MT" "${flag}" "${${flag}}")
       SET("${flag}" "${${flag}}")
     endforeach()
-    
-    target_link_libraries(pang 
+
+    target_link_libraries(pang
       debug ${SFML_GRAPHICS_LIBRARY_DEBUG} optimized ${SFML_GRAPHICS_LIBRARY_RELEASE}
       debug ${SFML_SYSTEM_LIBRARY_DEBUG} optimized ${SFML_SYSTEM_LIBRARY_RELEASE}
       debug ${SFML_WINDOW_LIBRARY_DEBUG} optimized ${SFML_WINDOW_LIBRARY_RELEASE}
-      ${Boost_DATETIME_LIBRARY} 
-      debug ${PROTOBUF_LIBRARY_DEBUG} optimized ${PROTOBUF_LIBRARY}) 
-    
+      ${Boost_DATETIME_LIBRARY}
+      debug ${PROTOBUF_LIBRARY_DEBUG} optimized ${PROTOBUF_LIBRARY})
+
   endif(MSVC)
 endif()
