@@ -9,13 +9,12 @@ namespace pang
 
   struct Level
   {
-    enum CellType
+    enum CellType : u8
     {
       CellEmpty   = 0,
       CellTerrain = 1 << 1,
-      CellEntity  = 1 << 2,
-      CellBullet  = 1 << 3,
-      CellBomb    = 1 << 4
+      CellBullet  = 1 << 2,
+      CellBomb    = 1 << 3
     };
 
     // player ids are 16 bit, highest bit indicates if it's a player or a bot
@@ -24,30 +23,31 @@ namespace pang
     struct Cell
     {
       CellType type : 8;
+      u16 ownerId : 16;
       union {
-        u32 playerId : 16;
+        u8 terrainType : 8;
+        u8 bombCountdown : 8;
       };
 
-      Cell() : background(0), playerId(0) {}
-      u8 background;
-      u32 playerId;
+      Cell() { memset(this, 0, sizeof(Cell)); }
     };
 
     Level() : _width(0), _height(0) {}
 
     void Init(const config::Game& config);
-    bool SetBackground(u32 x, u32 y, u8 v);
-    bool GetBackground(u32 x, u32 y, u8* v) const;
+    bool SetTerrain(u32 x, u32 y, u8 v);
+    bool GetTerrain(u32 x, u32 y, u8* v) const;
 
-    bool SetPlayer(u32 x, u32 y, u32 playerId);
-    bool GetPlayer(u32 x, u32 y, u32* playerId) const;
+    bool SetPlayer(u32 x, u32 y, u16 playerId);
+    bool GetPlayer(u32 x, u32 y, u16* playerId) const;
     void CreateTexture();
 
     bool Idx(u32 x, u32 y, u32* idx) const;
+    bool Idx(u32 x, u32 y, const function<void(u32)>& fn);
 
     Texture _texture;
     u32 _width, _height;
-    vector<u32> _data;
+    vector<Cell> _data;
   };
 
 }

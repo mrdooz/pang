@@ -23,15 +23,21 @@ void Level::Init(const config::Game& config)
     Vector2i dir = ofs[rand() % 4];
     for (u32 j = 0; j < s; ++j)
     {
-      if (Get(c.x, c.y) == 0)
-      {
-        Set(c.x, c.y, 1);
-      }
+      Idx(c.x, c.y, [this](u32 idx) { Cell& cell = _data[idx]; cell.type = CellTerrain; cell.terrainType = 1; });
       c += dir;
     }
   }
 
   CreateTexture();
+}
+
+//----------------------------------------------------------------------------------
+bool Level::Idx(u32 x, u32 y, const function<void(u32)>& fn)
+{
+  if (x >= _width || y >= _height)
+    return false;
+  fn(y * _width + x);
+  return true;
 }
 
 //----------------------------------------------------------------------------------
@@ -42,6 +48,35 @@ bool Level::Idx(u32 x, u32 y, u32* idx) const
 
   *idx = y * _width + x;
   return true;
+}
+
+//----------------------------------------------------------------------------------
+bool Level::SetTerrain(u32 x, u32 y, u8 v)
+{
+  u32 idx;
+  if (!Idx(x, y, &idx))
+    return false;
+
+
+  return true;
+}
+
+//----------------------------------------------------------------------------------
+bool Level::GetTerrain(u32 x, u32 y, u8* v) const
+{
+  return Idx(x, y, [=](u32 idx) { *v = _data[idx].terrainType; });
+}
+
+//----------------------------------------------------------------------------------
+bool Level::SetPlayer(u32 x, u32 y, u16 playerId)
+{
+
+}
+
+//----------------------------------------------------------------------------------
+bool Level::GetPlayer(u32 x, u32 y, u16* playerId) const
+{
+
 }
 
 //----------------------------------------------------------------------------------
