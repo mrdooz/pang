@@ -1,4 +1,5 @@
 #pragma once
+#include "types.hpp"
 #include "entity.hpp"
 #include "level.hpp"
 #include "protocol/game.pb.h"
@@ -19,7 +20,7 @@ namespace pang
 
   struct Bullet
   {
-    u32 playerId;
+    u16 entityId;
     Vector2f dir;
     Vector2f pos;
   };
@@ -35,12 +36,12 @@ namespace pang
     void AddMessage(MessageType type, const string& str);
 
   private:
+    u32 ActionScore(const Entity& entity, const AiState& aiState);
     void Render();
     void HandleActions();
-    void EraseMoveActions(u32 playerId);
+    void EraseMoveActions(EntityId entityId);
     Vector2f GetEmptyPos() const;
-    bool IsValidPos(const Vector2f& p) const;
-    void AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to);
+    void AddMoveAction(EntityId playerId, const Vector2f& from, const Vector2f& to);
     void DrawGrid();
     void UpdateMessages();
     void Update();
@@ -48,6 +49,7 @@ namespace pang
     void SpawnEnemies();
     void UpdateEnemies();
     bool SpawnBullet(Entity& e);
+    void DebugDrawEntity();
 
     Vector2f ClampedDestination(const Vector2f& pos, const Vector2f& dir);
     Vector2f SnappedPos(const Vector2f& pos);
@@ -57,7 +59,12 @@ namespace pang
     bool OnKeyPressed(const Event& event);
     bool OnKeyReleased(const Event& event);
 
+    bool OnMouseButtonReleased(const Event& event);
+
     void ReadKeyboard();
+
+    Tile WorldToTile(const Vector2f& p) const;
+    Vector2f TileToWorld(u32 x, u32 y) const;
 
     struct Message
     {
@@ -73,12 +80,14 @@ namespace pang
 
     deque<ActionBase*> _actionQueue;
     deque<ActionBase*> _inprogressActions;
-    unordered_map<u32, Entity > _entities;
-    unordered_map<u32, Entity > _deadEntites;
+    unordered_map<EntityId, shared_ptr<Entity> > _entities;
+    unordered_map<EntityId, shared_ptr<Entity> > _deadEntites;
 
     Level _level;
     Sprite _levelSprite;
     View _view;
+
+    shared_ptr<Entity> _selectedEntity;
 
     vector<Bullet> _bullets;
     vector<Message> _messages;
@@ -88,10 +97,11 @@ namespace pang
     bool _focus;
     bool _done;
     bool _playerDead;
+    bool _pausedEnemies;
     ptime _now;
     ptime _lastUpdate;
 
-    u32 _localPlayerId;
+    EntityId _localPlayerId;
 
     u8 _prevLeft, _prevRight;
   };

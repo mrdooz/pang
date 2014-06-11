@@ -32,6 +32,21 @@ namespace pang
   };
 
   //-----------------------------------------------------------------------------
+  class ArcShape : public sf::Shape
+  {
+  public:
+    ArcShape(const Vector2f& center, float radius, float startAngle, float endAngle, u32 segments = 32);
+    virtual unsigned int getPointCount() const;
+    virtual Vector2f getPoint(unsigned int index) const;
+
+  private:
+    Vector2f _center;
+    float _radius;
+    float _startAngle, _endAngle;
+    u32 _segments;
+  };
+
+  //-----------------------------------------------------------------------------
   class LineShape : public sf::Shape
   {
   public:

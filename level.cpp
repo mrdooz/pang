@@ -3,6 +3,7 @@
 
 using namespace pang;
 
+
 //----------------------------------------------------------------------------------
 void Level::Init(const config::Game& config)
 {
@@ -23,7 +24,7 @@ void Level::Init(const config::Game& config)
     Vector2i dir = ofs[rand() % 4];
     for (u32 j = 0; j < s; ++j)
     {
-      Idx(c.x, c.y, [this](u32 idx) { Cell& cell = _data[idx]; cell.type = CellTerrain; cell.terrainType = 1; });
+      SetTerrain(c.x, c.y, 1);
       c += dir;
     }
   }
@@ -32,7 +33,14 @@ void Level::Init(const config::Game& config)
 }
 
 //----------------------------------------------------------------------------------
-bool Level::Idx(u32 x, u32 y, const function<void(u32)>& fn)
+bool Level::IsValidPos(const Tile& tile) const
+{
+  u32 tmp;
+  return Idx(tile.x, tile.y, &tmp);
+}
+
+//----------------------------------------------------------------------------------
+bool Level::Idx(u32 x, u32 y, const function<void(u32)>& fn) const
 {
   if (x >= _width || y >= _height)
     return false;
@@ -53,60 +61,61 @@ bool Level::Idx(u32 x, u32 y, u32* idx) const
 //----------------------------------------------------------------------------------
 bool Level::SetTerrain(u32 x, u32 y, u8 v)
 {
-  u32 idx;
-  if (!Idx(x, y, &idx))
-    return false;
-
-
-  return true;
+  return Idx(x, y, [=](u32 idx) { _data[idx].terrain = v; });
 }
 
 //----------------------------------------------------------------------------------
 bool Level::GetTerrain(u32 x, u32 y, u8* v) const
 {
-  return Idx(x, y, [=](u32 idx) { *v = _data[idx].terrainType; });
+  return Idx(x, y, [=](u32 idx) { *v = _data[idx].terrain; });
 }
 
 //----------------------------------------------------------------------------------
-bool Level::SetPlayer(u32 x, u32 y, u16 playerId)
+bool Level::SetEntity(const Tile& tile, u16 entityId)
 {
-
+  return Idx(tile.x, tile.y, [=](u32 idx) { _data[idx].entityId = entityId; });
 }
 
 //----------------------------------------------------------------------------------
-bool Level::GetPlayer(u32 x, u32 y, u16* playerId) const
+bool Level::SetEntity(u32 x, u32 y, u16 entityId)
 {
-
+  return Idx(x, y, [=](u32 idx) { _data[idx].entityId = entityId; });
 }
 
 //----------------------------------------------------------------------------------
-void Level::SetPlayer(u32 x, u32 y, u32 playerId)
+bool Level::GetEntity(const Tile& tile, u16* entityId) const
 {
-  u32 idx;
-  if (Idx(x, y, &idx))
-    _data[idx].background = playerId;
+  return Idx(tile.x, tile.y, [=](u32 idx) { *entityId = _data[idx].terrain; });
 }
 
 //----------------------------------------------------------------------------------
-u32 Level::GetPlayer(u32 x, u32 y) const
+bool Level::GetEntity(u32 x, u32 y, u16* entityId) const
 {
-
+  return Idx(x, y, [=](u32 idx) { *entityId = _data[idx].terrain; });
 }
 
 //----------------------------------------------------------------------------------
-void Level::SetBackground(u32 x, u32 y, u8 v)
+void Level::GetSize(u32* width, u32* height) const
 {
-  u32 idx;
-  if (Idx(x, y, &idx))
-    _data[idx].background = v;
+  if (width)
+    *width = _width;
+
+  if (height)
+    *height = _height;
 }
 
 //----------------------------------------------------------------------------------
-u8 Level::GetBackground(u32 x, u32 y) const
+const Texture& Level::GetTexture() const
 {
-  u32 idx;
-  return Idx(x, y, &idx) ? _data[idx].background : 0xff;
+  return _texture;
 }
+
+//----------------------------------------------------------------------------------
+bool Level::GetCell(const Tile& tile, Cell** cell)
+{
+  return Idx(tile.x, tile.y, [=](u32 idx) { *cell = &_data[idx]; });
+}
+
 
 //----------------------------------------------------------------------------------
 void Level::CreateTexture()
@@ -121,7 +130,7 @@ void Level::CreateTexture()
   {
     for (u32 j = 0; j < _width; ++j)
     {
-      *p++ = _data[i*_width+j].background ? Color::White : Color::Black;
+      *p++ = _data[i*_width+j].terrain ? Color::White : Color::Black;
     }
   }
 

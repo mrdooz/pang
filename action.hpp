@@ -13,7 +13,7 @@ namespace pang
   {
     ActionBase(ActionType type) : type(type) {}
     ActionType type;
-    u32 playerId;
+    u16 entityId;
   };
 
   struct ActionMove : public ActionBase

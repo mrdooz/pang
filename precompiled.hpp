@@ -69,6 +69,7 @@ namespace pang
   using std::unordered_map;
   using std::pair;
   using std::make_pair;
+  using std::make_shared;
   using std::shared_ptr;
   using std::unique_ptr;
   using std::thread;

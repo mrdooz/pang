@@ -2,6 +2,7 @@
 #include "window_event_manager.hpp"
 #include "action.hpp"
 #include "utils.hpp"
+#include "sfml_helpers.hpp"
 
 using namespace pang;
 
@@ -79,11 +80,12 @@ Game::Game()
     : _gridSize(25)
     , _focus(true)
     , _done(false)
-    , _localPlayerId(0)
+    , _localPlayerId(1)
     , _prevLeft(0)
     , _prevRight(0)
     , _debugDraw(0)
     , _playerDead(false)
+    , _pausedEnemies(true)
 {
 }
 
@@ -109,6 +111,7 @@ bool Game::Init()
   _eventManager->RegisterHandler(Event::KeyReleased, bind(&Game::OnKeyReleased, this, _1));
   _eventManager->RegisterHandler(Event::LostFocus, bind(&Game::OnLostFocus, this, _1));
   _eventManager->RegisterHandler(Event::GainedFocus, bind(&Game::OnGainedFocus, this, _1));
+  _eventManager->RegisterHandler(Event::MouseButtonReleased, bind(&Game::OnMouseButtonReleased, this, _1));
 
 #ifdef WIN32
   string base("d:/projects/pang/");
@@ -125,9 +128,13 @@ bool Game::Init()
 
   _level.Init(_gameConfig);
 
-  Entity& e = _entities[_localPlayerId];
-  e._id = _localPlayerId;
-  e._pos = GetEmptyPos();
+  // create local player
+  shared_ptr<Entity> e = make_shared<Entity>();
+  e->_id = _localPlayerId;
+  e->_pos = GetEmptyPos();
+  _entities[_localPlayerId] = e;
+
+  _level.SetEntity(WorldToTile(e->_pos), e->_id);
 
   SpawnEnemies();
 
@@ -137,13 +144,14 @@ bool Game::Init()
 //----------------------------------------------------------------------------------
 Vector2f Game::GetEmptyPos() const
 {
+  u32 w, h;
+  _level.GetSize(&w, &h);
   while (true)
   {
-    Vector2f pos(rand() % _level._width, rand() % _level._height);
-    pos = (float)_gridSize * pos;
-    if (IsValidPos(pos))
+    Vector2f pos(rand() % w, rand() % h);
+    if (_level.IsValidPos(Tile(pos.x, pos.y)))
     {
-      return pos;
+      return (float)_gridSize * pos;
     }
   }
   return Vector2f(0,0);
@@ -154,38 +162,76 @@ void Game::SpawnEnemies()
 {
   for (u32 i = 0; i < _gameConfig.num_enemies(); ++i)
   {
-    u32 idx = _localPlayerId + 1 + i;
-    Entity& e = _entities[idx];
-    e._id = idx;
-    e._pos = GetEmptyPos();
+    EntityId idx = _localPlayerId + 1 + i;
+    shared_ptr<Entity> e = make_shared<Entity>();
+    e->_id = idx;
+    e->_pos = GetEmptyPos();
+    _entities[idx] = e;
+
+    _level.SetEntity(WorldToTile(e->_pos), e->_id);
   }
 }
+
+Vector2f Normaize(const Vector2f& v)
+{
+  float len = sqrtf(v.x * v.x + v.y * v.y);
+  if (len == 0)
+    return Vector2f(0,0);
+
+  return 1 / len * v;
+}
+
+float Dot(const Vector2f& a, const Vector2f& b)
+{
+  return a.x * b.x + a.y * b.y;
+}
+
+//----------------------------------------------------------------------------------
+u32 Game::ActionScore(const Entity& entity, const AiState& aiState)
+{
+  // check if the player is within the viewing cone
+  const Entity* player = _entities[_localPlayerId].get();
+
+  // check angle to player
+  // dot(a,b) = cos(angle)
+  //Vector2f toPlayer = Normalize(player->_pos - entity._pos);
+  //float angle = acosf(Dot(toPlayer, entity._dir));
+
+  return 0;
+}
+
 
 //----------------------------------------------------------------------------------
 void Game::UpdateEnemies()
 {
-  if (_playerDead)
+  if (_playerDead || _pausedEnemies)
     return;
 
-  Vector2f playerPos(_entities[_localPlayerId]._pos);
+  Vector2f playerPos(_entities[_localPlayerId]->_pos);
 
   for (auto& kv : _entities)
   {
-    Entity& e = kv.second;
-    if (e._id == _localPlayerId)
+    Entity* e = kv.second.get();
+    if (e->_id == _localPlayerId)
       continue;
 
     // turn towards player
-    Vector2f dir = (playerPos - e._pos);
+    Vector2f dir = (playerPos - e->_pos);
     Normalize(dir);
 
     float a = atan2f(dir.x, dir.y);
-    e._rot = a;
+    e->_rot = a;
 
-    Vector2f dest(e._pos + (float)_gridSize * dir);
-    // don't move if we'll hit another player
+    Vector2f dest(e->_pos + (float)_gridSize * dir);
+    Level::Cell* cell;
+    if (_level.GetCell(WorldToTile(dest), &cell))
+    {
+      // don't move to an occupied cell, or one which is another entity's dest
+      if ((cell->entityId && cell->entityId != e->_id) || (cell->destEntityId && cell->destEntityId != e->_id))
+        continue;
+    }
 
-    AddMoveAction(e._id, e._pos, e._pos + (float)_gridSize * dir);
+    AddMoveAction(e->_id, e->_pos, dest);
 
     if (_debugDraw & 2)
       AddMessage(MessageType::Debug, toString("dx: %.2f, dy: %.2f, a: %.2f", dir.x, dir.y, a));
@@ -229,7 +275,7 @@ void Game::ReadKeyboard()
   if (_playerDead)
     return;
 
-  Entity& e = _entities[_localPlayerId];
+  Entity& e = *_entities[_localPlayerId].get();
 
   // 0 = no movement, 1 = x axis, 2 = y axis
   u32 moveAction = 0;
@@ -264,10 +310,21 @@ void Game::ReadKeyboard()
   if (moveAction)
   {
     // calc new destination based on current pos and direction
-    AddMoveAction(0, e._pos, ClampedDestination(e._pos, e._vel * Vector2f(sinf(e._rot), cosf(e._rot))));
+    AddMoveAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e._vel * Vector2f(sinf(e._rot), cosf(e._rot))));
   }
-
 }
+
+//----------------------------------------------------------------------------------
+void Game::DebugDrawEntity()
+{
+  if (!_selectedEntity)
+    return;
+
+  const Entity& e = *_selectedEntity;
+  AddMessage(MessageType::Debug, toString("id: %d", e._id));
+  AddMessage(MessageType::Debug, toString("pos: x: %.2f, y: %.2f, rot: %.2f", e._pos.x, e._pos.y, e._rot));
+}
+
 
 //----------------------------------------------------------------------------------
 bool Game::SpawnBullet(Entity& e)
@@ -287,10 +344,10 @@ bool Game::SpawnBullet(Entity& e)
 
   Vector2f dir = Vector2f(sinf(e._rot), cosf(e._rot));
   Vector2f pos = SnappedPos(e._pos) + c + (float)_gridSize * dir;
-  if (IsValidPos(pos))
+  if (_level.IsValidPos(WorldToTile(pos)))
   {
     ActionBullet* b = new ActionBullet();
-    b->playerId = e._id;
+    b->entityId = e._id;
     b->pos = pos;
     b->dir = dir;
     _actionQueue.push_back(b);
@@ -298,6 +355,28 @@ bool Game::SpawnBullet(Entity& e)
 
   return true;
 }
+
+//----------------------------------------------------------------------------------
+bool Game::OnMouseButtonReleased(const Event& event)
+{
+  // the view is centered around the local player, so compensate for this
+  const Vector2f& p = _renderWindow->mapPixelToCoords(Vector2i(event.mouseButton.x, event.mouseButton.y));
+  Tile tile = WorldToTile(p);
+
+  _selectedEntity.reset();
+
+  for (const auto& kv : _entities)
+  {
+    Tile entityTile = WorldToTile(kv.second->_pos);
+    if (entityTile == tile)
+    {
+      _selectedEntity = kv.second;
+      break;
+    }
+  }
+  return true;
+}
+
 
 //----------------------------------------------------------------------------------
 bool Game::OnKeyPressed(const Event& event)
@@ -315,7 +394,7 @@ bool Game::OnKeyPressed(const Event& event)
     return true;
   }
 
-  Entity& e = _entities[_localPlayerId];
+  Entity& e = *_entities[_localPlayerId].get();
 
   switch (key)
   {
@@ -343,25 +422,28 @@ bool Game::OnKeyReleased(const Event& event)
 void Game::DrawGrid()
 {
   _levelSprite.setPosition(0, 0);
-  _levelSprite.setTexture(_level._texture);
+  _levelSprite.setTexture(_level.GetTexture());
   _levelSprite.setScale(_gridSize, _gridSize);
   _renderWindow->draw(_levelSprite);
 
   vector<sf::Vertex> lines;
   Color c(0x80, 0x80, 0x80);
 
+  u32 w, h;
+  _level.GetSize(&w, &h);
+
   // horizontal
-  for (u32 i = 0; i <= _level._height; ++i)
+  for (u32 i = 0; i <= h; ++i)
   {
     lines.push_back(sf::Vertex(Vector2f(0, i*_gridSize), c));
-    lines.push_back(sf::Vertex(Vector2f(_level._width*_gridSize, i*_gridSize), c));
+    lines.push_back(sf::Vertex(Vector2f(w*_gridSize, i*_gridSize), c));
   }
 
   // vertical
-  for (u32 i = 0; i <= _level._width; ++i)
+  for (u32 i = 0; i <= w; ++i)
   {
     lines.push_back(sf::Vertex(Vector2f(i*_gridSize, 0), c));
-    lines.push_back(sf::Vertex(Vector2f(i*_gridSize, _level._height*_gridSize), c));
+    lines.push_back(sf::Vertex(Vector2f(i*_gridSize, h*_gridSize), c));
   }
 
   _renderWindow->draw(lines.data(), lines.size(), sf::Lines);
@@ -369,18 +451,11 @@ void Game::DrawGrid()
 }
 
 //----------------------------------------------------------------------------------
-bool Game::IsValidPos(const Vector2f& p) const
+void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f& to)
 {
-  u8 v = _level.Get(p.x / _gridSize, p.y / _gridSize);
-  return v == 0;
-}
-
-//----------------------------------------------------------------------------------
-void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
-{
-  if (!IsValidPos(from) || !IsValidPos(to))
+  if (!_level.IsValidPos(WorldToTile(from)) || !_level.IsValidPos(WorldToTile(to)))
   {
-    _entities[playerId]._vel = 0;
+    _entities[entityId]->_vel = 0;
     return;
   }
 
@@ -388,7 +463,7 @@ void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
   for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
   {
     ActionBase* a = *it;
-    if (a->type == ActionType::Move && a->playerId == playerId)
+    if (a->type == ActionType::Move && a->entityId == entityId)
     {
       ActionMove* m = static_cast<ActionMove*>(a);
       if (SnappedPos(m->to) == SnappedPos(to))
@@ -402,10 +477,14 @@ void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
   ActionMove* m = nullptr;
   for (ActionBase* a : _actionQueue)
   {
-    if (a->type == ActionType::Move && a->playerId == playerId)
+    if (a->type == ActionType::Move && a->entityId == entityId)
     {
       // if a move action for the current player exists in the queue, replace it
-      m = static_cast<ActionMove*>(a);
+      ActionMove* aa = static_cast<ActionMove*>(a);
+      Level::Cell* oldCell;
+      _level.GetCell(WorldToTile(aa->to), &oldCell);
+      oldCell->destEntityId = 0;
+      m = aa;
       break;
     }
   }
@@ -414,9 +493,13 @@ void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
   if (!m)
   {
     m = new ActionMove();
-    m->playerId = playerId;
+    m->entityId = entityId;
     _actionQueue.push_back(m);
   }
+
+  Level::Cell* cell;
+  _level.GetCell(WorldToTile(to), &cell);
+  cell->destEntityId = entityId;
 
   m->from = from;
   m->to = to;
@@ -425,12 +508,12 @@ void Game::AddMoveAction(u32 playerId, const Vector2f& from, const Vector2f& to)
 }
 
 //----------------------------------------------------------------------------------
-void Game::EraseMoveActions(u32 playerId)
+void Game::EraseMoveActions(EntityId entityId)
 {
   for (auto it = _inprogressActions.begin(); it != _inprogressActions.end();)
   {
     ActionBase* a = *it;
-    if (a->type == ActionType::Move && a->playerId == playerId)
+    if (a->type == ActionType::Move && a->entityId == entityId)
     {
       delete a;
       it = _inprogressActions.erase(it);
@@ -463,7 +546,7 @@ void Game::Update()
   {
     Bullet& b = *it;
     b.pos = b.pos + 100 * delta * b.dir;
-    if (!IsValidPos(b.pos))
+    if (!_level.IsValidPos(WorldToTile(b.pos)))
     {
       it = _bullets.erase(it);
     }
@@ -473,13 +556,13 @@ void Game::Update()
       // check for player collision
       for (auto it = _entities.begin(); it != _entities.end(); )
       {
-        Entity& e = it->second;
-        if (e._id != b.playerId && SnappedPos(e._pos) == SnappedPos(b.pos))
+        shared_ptr<Entity> e = it->second;
+        if (e->_id != b.entityId && SnappedPos(e->_pos) == SnappedPos(b.pos))
         {
           collision = true;
-          if (e._id == _localPlayerId)
+          if (e->_id == _localPlayerId)
             _playerDead = true;
-          _deadEntites[e._id] = e;
+          _deadEntites[e->_id] = e;
           _entities.erase(it);
           break;
         }
@@ -504,7 +587,7 @@ void Game::HandleActions()
   // Move actions from the queue to the in progress queue
   for (ActionBase* action : _actionQueue)
   {
-    u32 playerId = action->playerId;
+    EntityId entityId = action->entityId;
 
     bool instantAction = false;
 
@@ -512,7 +595,7 @@ void Game::HandleActions()
     {
       // only allow a single in progress move action, so erase any in progress for
       // the current entity
-      EraseMoveActions(playerId);
+      EraseMoveActions(entityId);
     }
     else if (action->type == ActionType::Bullet)
     {
@@ -520,7 +603,7 @@ void Game::HandleActions()
       Bullet b;
       b.pos = a->pos;
       b.dir = a->dir;
-      b.playerId = a->playerId;
+      b.entityId = a->entityId;
       _bullets.push_back(b);
       instantAction = true;
     }
@@ -549,16 +632,23 @@ void Game::HandleActions()
     if (action->type == ActionType::Move)
     {
       ActionMove* m = static_cast<ActionMove*>(action);
-      Entity& e = _entities[m->playerId];
+      Entity& e = *_entities[m->entityId];
+      Vector2f prevPos = e._pos;
       // interpolate the player position
       float delta = (float)(_now - m->startTime).total_milliseconds() / (m->endTime - m->startTime).total_milliseconds();
       e._pos = m->from + delta * (m->to - m->from);
+
+      _level.SetEntity(WorldToTile(prevPos), 0);
+      _level.SetEntity(WorldToTile(e._pos), e._id);
 
       if (_now >= m->endTime)
       {
         deleteAction = true;
         e._vel = 0;
         e._pos = m->to;
+        Level::Cell* cell;
+        _level.GetCell(WorldToTile(e._pos), &cell);
+        cell->destEntityId = 0;
       }
     }
 
@@ -574,19 +664,20 @@ void Game::Render()
   if (!_playerDead)
   {
     Vector2u s = _renderWindow->getSize();
-    _view.setCenter(_entities[_localPlayerId]._pos);
+    _view.setCenter(_entities[_localPlayerId]->_pos);
     _view.setRotation(0);
     _view.setSize(s.x, s.y);
     _renderWindow->setView(_view);
   }
 
   DrawGrid();
+  DebugDrawEntity();
 
   Vector2f c(_gridSize/2, _gridSize/2);
 
   for (const auto& kv : _entities)
   {
-    const Entity& e = kv.second;
+    const Entity& e = *kv.second;
     VertexArray triangle(sf::Triangles, 3);
     Transform rotation;
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
@@ -599,7 +690,10 @@ void Game::Render()
     triangle[2].color = col;
     _renderWindow->draw(triangle);
 
-    if (e._id == _localPlayerId)
+    ArcShape aa(e._pos, 30, 0, PI / 4);
+    _renderWindow->draw(aa);
+
+    if (e._id == _localPlayerId && (_debugDraw & 0x4))
     {
       AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
     }
@@ -626,11 +720,11 @@ void Game::Render()
     rect.setFillColor(Color(0x80, 0x80, 0, 0x80));
     rect.setSize(Vector2f(_gridSize, _gridSize));
 
-    Vector2f localPos(_entities[_localPlayerId]._pos);
+    Vector2f localPos(_entities[_localPlayerId]->_pos);
 
     for (const auto& kv : _entities)
     {
-      const Entity& e = kv.second;
+      const Entity& e = *kv.second;
       if (e._id == _localPlayerId)
         continue;
 
@@ -697,6 +791,19 @@ void Game::AddMessage(MessageType type, const string& str)
   }
 
   _messages.push_back(msg);
+}
+
+//------------------------------------------------------------------------------
+Tile Game::WorldToTile(const Vector2f& p) const
+{
+  return Tile(p.x / _gridSize, p.y / _gridSize);
+}
+
+//------------------------------------------------------------------------------
+Vector2f Game::TileToWorld(u32 x, u32 y) const
+{
+  // returns a point in the center of the tile
+  return Vector2f(x * _gridSize + _gridSize / 2, y * _gridSize + _gridSize / 2);
 }
 
 //------------------------------------------------------------------------------

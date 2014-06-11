@@ -1,5 +1,6 @@
 #pragma once
 #include "pos.hpp"
+#include "types.hpp"
 
 namespace pang
 {
@@ -11,6 +12,12 @@ namespace pang
     // 0 points straight up
     float _rot;
     float _vel;
-    u32 _id;
+    EntityId _id;
+  };
+
+  struct AiState
+  {
+    Vector2f _lastKnownPlayerState;
+    float _fov;
   };
 }
