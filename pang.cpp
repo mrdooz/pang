@@ -255,12 +255,14 @@ bool Game::OnGainedFocus(const Event& event)
   return true;
 }
 
+//----------------------------------------------------------------------------------
 Vector2f Game::SnappedPos(const Vector2f& pos)
 {
-  float f = _gridSize;
-  int x = (pos.x + f / 2) / f;
-  int y = (pos.y + f / 2) / f;
-  return Vector2f(x * f, y * f);
+  float ff = _gridSize;
+  float f = ff - 1;
+  int x = (pos.x + f) / ff;
+  int y = (pos.y + f) / ff;
+  return Vector2f(x * ff, y * ff);
 }
 
 //----------------------------------------------------------------------------------
@@ -275,7 +277,7 @@ void Game::ReadKeyboard()
   if (_playerDead)
     return;
 
-  Entity& e = *_entities[_localPlayerId].get();
+  Entity& e = *_entities[_localPlayerId];
 
   // 0 = no movement, 1 = x axis, 2 = y axis
   u32 moveAction = 0;
@@ -285,12 +287,12 @@ void Game::ReadKeyboard()
 
   if (curLeft && !_prevLeft)
   {
-    e._rot += PI / 2;
+    e._rot -= PI / 2;
     moveAction = 1;
   }
   else if (curRight && !_prevRight)
   {
-    e._rot -= PI / 2;
+    e._rot += PI / 2;
     moveAction = 1;
   }
   else if (Keyboard::isKeyPressed(Keyboard::Up) || Keyboard::isKeyPressed(Keyboard::W))
@@ -310,7 +312,7 @@ void Game::ReadKeyboard()
   if (moveAction)
   {
     // calc new destination based on current pos and direction
-    AddMoveAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e._vel * Vector2f(sinf(e._rot), cosf(e._rot))));
+    AddMoveAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e._vel * Vector2f(sinf(e._rot), -cosf(e._rot))));
   }
 }
 
@@ -342,7 +344,7 @@ bool Game::SpawnBullet(Entity& e)
 
   Vector2f c(_gridSize/2, _gridSize/2);
 
-  Vector2f dir = Vector2f(sinf(e._rot), cosf(e._rot));
+  Vector2f dir = Vector2f(sinf(e._rot), -cosf(e._rot));
   Vector2f pos = SnappedPos(e._pos) + c + (float)_gridSize * dir;
   if (_level.IsValidPos(WorldToTile(pos)))
   {
@@ -554,21 +556,21 @@ void Game::Update()
     {
       bool collision = false;
       // check for player collision
-      for (auto it = _entities.begin(); it != _entities.end(); )
+      for (auto j = _entities.begin(); j != _entities.end(); )
       {
-        shared_ptr<Entity> e = it->second;
+        shared_ptr<Entity> e = j->second;
         if (e->_id != b.entityId && SnappedPos(e->_pos) == SnappedPos(b.pos))
         {
           collision = true;
           if (e->_id == _localPlayerId)
             _playerDead = true;
           _deadEntites[e->_id] = e;
-          _entities.erase(it);
+          _entities.erase(j);
           break;
         }
         else
         {
-          ++it;
+          ++j;
         }
       }
 
@@ -681,7 +683,7 @@ void Game::Render()
     VertexArray triangle(sf::Triangles, 3);
     Transform rotation;
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
-    rotation.rotate(-e._rot * 180 / PI);
+    rotation.rotate(180 + e._rot * 180 / PI);
     triangle[0].position = c + e._pos + rotation.transformPoint(Vector2f(0, 20));
     triangle[0].color = Color::Red;
     triangle[1].position = c + e._pos + rotation.transformPoint(Vector2f(-5, 0));
@@ -811,9 +813,14 @@ void Game::UpdateMessages()
 {
   ptime now = microsec_clock::local_time();
 
-  Vector2f center = _renderWindow->getView().getCenter();
-  float x = center.x + 300;
-  float y = center.y + 0;
+  Vector2f pos = _renderWindow->mapPixelToCoords(Vector2i(300, 0));
+  float x = pos.x;
+  float y = pos.y;
+  RectangleShape rect;
+  rect.setPosition(x, y);
+  rect.setFillColor(Color(128, 128, 128, 128));
+  rect.setSize(Vector2f(16*40, 17 * _messages.size()));
+  _renderWindow->draw(rect);
 
   Text text;
   text.setFont(_font);
@@ -824,7 +831,6 @@ void Game::UpdateMessages()
     Message& msg = *it;
     if (msg.endTime.is_not_a_date_time() || msg.endTime > now)
     {
-      y += 15;
       // blend out alpha over the last second
       time_duration left = msg.endTime - now;
       if (left < seconds(1))
@@ -835,6 +841,7 @@ void Game::UpdateMessages()
       text.setPosition(x, y);
       text.setString(msg.str);
       _renderWindow->draw(text);
+      y += 16;
     }
 
     if (!msg.endTime.is_not_a_date_time() && msg.endTime > now)
