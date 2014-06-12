@@ -136,3 +136,59 @@ void Level::CreateTexture()
 
   _texture.update((const u8*)pixels.data());
 }
+
+//----------------------------------------------------------------------------------
+void Level::UpdateTexture()
+{
+  vector<Color> pixels(_width * _height);
+  Color* p = pixels.data();
+  Cell* cell = _data.data();
+  for (u32 i = 0; i < _height; ++i)
+  {
+    for (u32 j = 0; j < _width; ++j)
+    {
+      if (cell->terrain == 0)
+      {
+        u8 h = cell->newHeat;
+        cell->heat = cell->newHeat;
+        *p = Color(h, h, h, 255);
+      }
+      else
+      {
+        *p = Color::White;
+      }
+
+      ++cell;
+      ++p;
+    }
+  }
+
+  _texture.update((const u8*)pixels.data());
+}
+
+
+//----------------------------------------------------------------------------------
+void Level::Diffuse()
+{
+  // box filter all the cell heat
+  Cell* cell = _data.data();
+  for (u32 i = 1; i < _height-1; ++i)
+  {
+    for (u32 j = 1; j < _width-1; ++j)
+    {
+      static s32 ofs[] = {
+          -1, -1, +0, -1, +1, -1,
+          -1, +0, +0, +0, +1, +0,
+          -1, +1, +0, +1, +1, +1 };
+
+      u32 res = 0;
+      for (u32 k = 0; k < 9; ++k)
+      {
+        res += (cell + ofs[k*2+0] + ofs[k*2+1] * (s32)_width)->heat;
+      }
+      res = res / 9;
+      cell->newHeat = min(255u, res);
+      ++cell;
+    }
+  }
+}

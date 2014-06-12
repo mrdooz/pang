@@ -44,6 +44,8 @@ namespace pang
     Vector2f GetEmptyPos() const;
     void AddMoveAction(EntityId playerId, const Vector2f& from, const Vector2f& to);
     void DrawGrid();
+    void DrawEntities();
+    void DrawBullets();
     void UpdateMessages();
     void Update();
 

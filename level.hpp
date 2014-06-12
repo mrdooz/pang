@@ -16,9 +16,11 @@ namespace pang
 
     struct Cell
     {
-      u8 terrain;
       u16 entityId;
       u16 destEntityId;
+      u8 terrain;
+      u8 heat;
+      u8 newHeat;
       Cell() { memset(this, 0, sizeof(Cell)); }
     };
 
@@ -30,6 +32,8 @@ namespace pang
     bool SetEntity(const Tile& tile, u16 entityId);
     bool GetEntity(const Tile& tile, u16* entityId) const;
     void CreateTexture();
+    void UpdateTexture();
+    void Diffuse();
 
     void GetSize(u32* width, u32* height) const;
     const Texture& GetTexture() const;
@@ -48,5 +52,4 @@ namespace pang
     u32 _width, _height;
     vector<Cell> _data;
   };
-
 }

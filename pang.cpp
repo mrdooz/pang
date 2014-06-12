@@ -78,14 +78,14 @@ void Line(int x0, int y0, int x1, int y1, vector<Vector2i>* line)
 //----------------------------------------------------------------------------------
 Game::Game()
     : _gridSize(25)
+    , _debugDraw(0)
     , _focus(true)
     , _done(false)
+    , _playerDead(false)
+    , _pausedEnemies(true)
     , _localPlayerId(1)
     , _prevLeft(0)
     , _prevRight(0)
-    , _debugDraw(0)
-    , _playerDead(false)
-    , _pausedEnemies(true)
 {
 }
 
@@ -571,6 +571,10 @@ void Game::Update()
   HandleActions();
   UpdateVisibility();
 
+  Level::Cell* cell;
+  _level.GetCell(WorldToTile(_entities[_localPlayerId]->_pos), &cell);
+  cell->heat = 255;
+
   if (_lastUpdate.is_not_a_date_time())
   {
     _lastUpdate = _now;
@@ -708,9 +712,25 @@ void Game::Render()
     _renderWindow->setView(_view);
   }
 
+  _level.Diffuse();
+  _level.UpdateTexture();
   DrawGrid();
+  DrawEntities();
+
   DebugDrawEntity();
 
+  if (_playerDead)
+  {
+    AddMessage(MessageType::Debug, "** GAME OVER **");
+  }
+
+  UpdateMessages();
+  _renderWindow->display();
+}
+
+//----------------------------------------------------------------------------------
+void Game::DrawEntities()
+{
   Vector2f ofs(_gridSize/2, _gridSize/2);
 
   for (const auto& kv : _entities)
@@ -739,11 +759,7 @@ void Game::Render()
     }
   }
 
-  if (_playerDead)
-  {
-    AddMessage(MessageType::Debug, "** GAME OVER **");
-  }
-
+  // draw bullets
   RectangleShape rect;
   rect.setFillColor(Color::Red);
   rect.setSize(Vector2f(6, 6));
@@ -755,32 +771,6 @@ void Game::Render()
     _renderWindow->draw(rect);
   }
 
-  if (_debugDraw & 0x1)
-  {
-    rect.setFillColor(Color(0x80, 0x80, 0, 0x80));
-    rect.setSize(Vector2f(_gridSize, _gridSize));
-
-    Vector2f localPos(_entities[_localPlayerId]->_pos);
-
-    for (const auto& kv : _entities)
-    {
-      const Entity& e = *kv.second;
-      if (e._id == _localPlayerId)
-        continue;
-
-      vector<Vector2i> p;
-      Line(e._pos.x / _gridSize, e._pos.y / _gridSize, localPos.x / _gridSize, localPos.y / _gridSize, &p);
-
-      for (const Vector2i& x : p)
-      {
-        rect.setPosition(_gridSize * x.x, _gridSize * x.y);
-        _renderWindow->draw(rect);
-      }
-    }
-  }
-
-  UpdateMessages();
-  _renderWindow->display();
 }
 
 //----------------------------------------------------------------------------------
