@@ -7,6 +7,7 @@ namespace pang
   enum class ActionType
   {
     Move,
+    MoveTo,
     Bullet
   };
 
@@ -20,6 +21,12 @@ namespace pang
   struct ActionMove : public ActionBase
   {
     ActionMove(EntityId id) : ActionBase(ActionType::Move) { entityId = id; }
+    Vector2f dir;
+  };
+
+  struct ActionMoveTo : public ActionBase
+  {
+    ActionMoveTo(EntityId id) : ActionBase(ActionType::MoveTo) { entityId = id; }
     // note, only the hi part of the position is used for the move
     Vector2f from, to;
     ptime startTime, endTime;
@@ -27,7 +34,7 @@ namespace pang
 
   struct ActionBullet : public ActionBase
   {
-    ActionBullet() : ActionBase(ActionType::Bullet) {}
+    ActionBullet(EntityId id) : ActionBase(ActionType::Bullet) { entityId = id; }
     Vector2f pos;
     Vector2f dir;
   };
