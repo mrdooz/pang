@@ -1,5 +1,6 @@
 #pragma once
 #include "pos.hpp"
+#include "types.hpp"
 
 namespace pang
 {
@@ -18,7 +19,7 @@ namespace pang
 
   struct ActionMove : public ActionBase
   {
-    ActionMove() : ActionBase(ActionType::Move) {}
+    ActionMove(EntityId id) : ActionBase(ActionType::Move) { entityId = id; }
     // note, only the hi part of the position is used for the move
     Vector2f from, to;
     ptime startTime, endTime;

@@ -36,10 +36,11 @@ namespace pang
     void AddMessage(MessageType type, const string& str);
 
   private:
+    void UpdateVisibility();
     u32 ActionScore(const Entity& entity, const AiState& aiState);
     void Render();
     void HandleActions();
-    void EraseMoveActions(EntityId entityId);
+    void EraseInProgressMoveActions(EntityId entityId);
     Vector2f GetEmptyPos() const;
     void AddMoveAction(EntityId playerId, const Vector2f& from, const Vector2f& to);
     void DrawGrid();

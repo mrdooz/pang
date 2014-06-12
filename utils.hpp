@@ -71,6 +71,15 @@ namespace pang
   }
 
   template <typename T>
+  float DistSq(const sf::Vector2<T>& a, const sf::Vector2<T>& b)
+  {
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+
+    return dx*dx+dy*dy;
+  }
+
+  template <typename T>
   sf::Vector2<T> Normalize(const sf::Vector2<T>& a)
   {
     float len = Length(a);

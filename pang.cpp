@@ -312,7 +312,7 @@ void Game::ReadKeyboard()
   if (moveAction)
   {
     // calc new destination based on current pos and direction
-    AddMoveAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e._vel * Vector2f(sinf(e._rot), -cosf(e._rot))));
+    AddMoveAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e._vel * e.Dir()));
   }
 }
 
@@ -461,6 +461,8 @@ void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f
     return;
   }
 
+  Vector2f snappedTo = SnappedPos(to);
+
   // check if a move action to the given location is already in progress
   for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
   {
@@ -468,7 +470,7 @@ void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f
     if (a->type == ActionType::Move && a->entityId == entityId)
     {
       ActionMove* m = static_cast<ActionMove*>(a);
-      if (SnappedPos(m->to) == SnappedPos(to))
+      if (SnappedPos(m->to) == snappedTo)
       {
         // The requested move is already in progress, so bail
         return;
@@ -476,12 +478,12 @@ void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f
     }
   }
 
+  // check if a move action for the current player exists in the queue; If so, replace it
   ActionMove* m = nullptr;
   for (ActionBase* a : _actionQueue)
   {
     if (a->type == ActionType::Move && a->entityId == entityId)
     {
-      // if a move action for the current player exists in the queue, replace it
       ActionMove* aa = static_cast<ActionMove*>(a);
       Level::Cell* oldCell;
       _level.GetCell(WorldToTile(aa->to), &oldCell);
@@ -494,8 +496,7 @@ void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f
   // Create the new action if needed
   if (!m)
   {
-    m = new ActionMove();
-    m->entityId = entityId;
+    m = new ActionMove(entityId);
     _actionQueue.push_back(m);
   }
 
@@ -510,22 +511,56 @@ void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f
 }
 
 //----------------------------------------------------------------------------------
-void Game::EraseMoveActions(EntityId entityId)
+void Game::EraseInProgressMoveActions(EntityId entityId)
 {
-  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end();)
+  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
   {
     ActionBase* a = *it;
     if (a->type == ActionType::Move && a->entityId == entityId)
     {
+      // there can only be a single in progress move action per entity, so if we
+      // find one, delete it and return
       delete a;
-      it = _inprogressActions.erase(it);
-    }
-    else
-    {
-      ++it;
+      _inprogressActions.erase(it);
+      return;
     }
   }
 }
+
+//----------------------------------------------------------------------------------
+void Game::UpdateVisibility()
+{
+  for (auto& kv : _entities)
+  {
+    shared_ptr<Entity>& e = kv.second;
+    e->_visibleEntities.clear();
+
+    float distSq = e->_viewDistance * e->_viewDistance;
+    const Vector2f& pos = e->_pos;
+    const Vector2f& dir = e->Dir();
+
+    for (auto& innerKv : _entities)
+    {
+      shared_ptr<Entity>& e2 = innerKv.second;
+      if (e->_id == e2->_id)
+        continue;
+
+      // first, check distance
+      float tmp = DistSq(e->_pos, e2->_pos);
+      if (tmp > distSq)
+        continue;
+
+      // check angle between direction vector and vector to entity
+      Vector2f toEntity(Normalize(e2->_pos - pos));
+
+      // dot(a,b) = cos(theta)
+      float angle = acosf(Dot(toEntity, dir));
+      if (angle < e->_fov)
+        e->_visibleEntities.push_back(e2->_id);
+    }
+  }
+}
+
 //----------------------------------------------------------------------------------
 void Game::Update()
 {
@@ -534,6 +569,7 @@ void Game::Update()
 
   ReadKeyboard();
   HandleActions();
+  UpdateVisibility();
 
   if (_lastUpdate.is_not_a_date_time())
   {
@@ -597,7 +633,7 @@ void Game::HandleActions()
     {
       // only allow a single in progress move action, so erase any in progress for
       // the current entity
-      EraseMoveActions(entityId);
+      EraseInProgressMoveActions(entityId);
     }
     else if (action->type == ActionType::Bullet)
     {
@@ -675,7 +711,7 @@ void Game::Render()
   DrawGrid();
   DebugDrawEntity();
 
-  Vector2f c(_gridSize/2, _gridSize/2);
+  Vector2f ofs(_gridSize/2, _gridSize/2);
 
   for (const auto& kv : _entities)
   {
@@ -684,15 +720,17 @@ void Game::Render()
     Transform rotation;
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
     rotation.rotate(180 + e._rot * 180 / PI);
-    triangle[0].position = c + e._pos + rotation.transformPoint(Vector2f(0, 20));
+    triangle[0].position = ofs + e._pos + rotation.transformPoint(Vector2f(0, 20));
     triangle[0].color = Color::Red;
-    triangle[1].position = c + e._pos + rotation.transformPoint(Vector2f(-5, 0));
+    triangle[1].position = ofs + e._pos + rotation.transformPoint(Vector2f(-5, 0));
     triangle[1].color = col;
-    triangle[2].position = c + e._pos + rotation.transformPoint(Vector2f(5, 0));
+    triangle[2].position = ofs + e._pos + rotation.transformPoint(Vector2f(5, 0));
     triangle[2].color = col;
     _renderWindow->draw(triangle);
 
-    ArcShape aa(e._pos, 30, 0, PI / 4);
+    // draw the visibility cone
+    ArcShape aa(e._pos + ofs, e._viewDistance, e._rot - e._fov, e._rot + e._fov);
+    aa.setFillColor(Color(e._visibleEntities.empty() ? 200 : 0, 200, 0, 100));
     _renderWindow->draw(aa);
 
     if (e._id == _localPlayerId && (_debugDraw & 0x4))
@@ -709,11 +747,11 @@ void Game::Render()
   RectangleShape rect;
   rect.setFillColor(Color::Red);
   rect.setSize(Vector2f(6, 6));
-  Vector2f ofs(0, 3);
+  Vector2f bulletOfs(0, 3);
 
   for (const Bullet& b : _bullets)
   {
-    rect.setPosition(b.pos - ofs);
+    rect.setPosition(b.pos - bulletOfs);
     _renderWindow->draw(rect);
   }
 
