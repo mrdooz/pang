@@ -293,26 +293,22 @@ void Game::ReadKeyboard()
 
   if (curLeft && !_prevLeft)
   {
-    Transform rotation;
-    rotation.rotate(-90);
-    e._vel = rotation.transformPoint(e._vel);
+    e._rot -= PI/2;
     moveAction = 1;
   }
   else if (curRight && !_prevRight)
   {
-    Transform rotation;
-    rotation.rotate(90);
-    e._vel = rotation.transformPoint(e._vel);
+    e._rot += PI/2;
     moveAction = 1;
   }
   else if (Keyboard::isKeyPressed(Keyboard::Up) || Keyboard::isKeyPressed(Keyboard::W))
   {
-    //e._vel = Clamp(e._vel + 1, -1.f, 1.f);
+    e._vel = e.Dir();
     moveAction = 2;
   }
   else if (Keyboard::isKeyPressed(Keyboard::Down) || Keyboard::isKeyPressed(Keyboard::S))
   {
-    //e._vel = Clamp(e._vel - 1, -1.f, 1.f);
+    e._vel = -e.Dir();
     moveAction = 2;
   }
 
@@ -322,7 +318,8 @@ void Game::ReadKeyboard()
   if (moveAction)
   {
     // calc new destination based on current pos and direction
-    AddMoveAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e.Dir()));
+    AddMoveAction(_localPlayerId, e._vel);
+    //AddMoveToAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e.Dir()));
   }
 }
 
@@ -463,7 +460,27 @@ void Game::DrawGrid()
 }
 
 //----------------------------------------------------------------------------------
-void Game::AddMoveAction(EntityId entityId, const Vector2f& from, const Vector2f& to)
+void Game::AddMoveAction(EntityId entityId, const Vector2f& dir)
+{
+  // check if a move action for the entity is already in progress
+  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
+  {
+    ActionBase* a = *it;
+    if (a->type == ActionType::Move && a->entityId == entityId)
+    {
+      ActionMove* am = static_cast<ActionMove*>(a);
+      am->dir = dir;
+      return;
+    }
+  }
+
+  ActionMove* am = new ActionMove(entityId);
+  am->dir = dir;
+  _actionQueue.push_back(am);
+}
+
+//----------------------------------------------------------------------------------
+void Game::AddMoveToAction(EntityId entityId, const Vector2f &from, const Vector2f &to)
 {
   if (!_level.IsValidPos(WorldToTile(from)) || !_level.IsValidPos(WorldToTile(to)))
   {
@@ -707,6 +724,8 @@ void Game::HandleActions(float delta_s)
     else if (action->type == ActionType::Move)
     {
       ActionMove* m = static_cast<ActionMove*>(action);
+      Entity& e = *_entities[m->entityId];
+      e._pos += 10 * delta_s * e._vel;
     }
 
     if (actionComplete)
@@ -762,8 +781,7 @@ void Game::DrawEntities()
     VertexArray triangle(sf::Triangles, 3);
     Transform rotation;
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
-    float angle = 180 * atan2(e._vel.y, e._vel.x) / PI;
-    rotation.rotate(angle);
+    rotation.rotate(-180 * e._rot / PI);
     triangle[0].position = ofs + e._pos + rotation.transformPoint(Vector2f(0, 20));
     triangle[0].color = Color::Red;
     triangle[1].position = ofs + e._pos + rotation.transformPoint(Vector2f(-5, 0));

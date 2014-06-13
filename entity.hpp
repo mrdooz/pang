@@ -18,6 +18,7 @@ namespace pang
     Vector2f _acc;
     Vector2f _vel;
     Vector2f _pos;
+    float _rot;
     ptime _lastAction;
     EntityId _id;
     // fov is symmetric along the direction vector

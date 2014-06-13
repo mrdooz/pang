@@ -42,7 +42,8 @@ namespace pang
     void HandleActions(float delta_s);
     void EraseInProgressMoveActions(EntityId entityId);
     Vector2f GetEmptyPos() const;
-    void AddMoveAction(EntityId playerId, const Vector2f& from, const Vector2f& to);
+    void AddMoveToAction(EntityId playerId, const Vector2f &from, const Vector2f &to);
+    void AddMoveAction(EntityId entityId, const Vector2f& dir);
     void DrawGrid();
     void DrawEntities();
     void DrawBullets();

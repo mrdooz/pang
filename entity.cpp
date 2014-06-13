@@ -7,6 +7,7 @@ using namespace pang;
 Entity::Entity()
     : _acc(0,0)
     , _vel(0,0)
+    , _rot(PI)
     , _fov(PI / 6)
     , _viewDistance(100)
 {
@@ -15,5 +16,5 @@ Entity::Entity()
 //----------------------------------------------------------------------------------
 Vector2f Entity::Dir() const
 {
-  return Normalize(_vel);
+  return Vector2f(sinf(_rot), -cosf(_rot));
 }
