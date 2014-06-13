@@ -7,7 +7,6 @@
 namespace pang
 {
   class WindowEventManager;
-  struct ActionBase;
 
   enum class MessageType
   {
@@ -37,18 +36,15 @@ namespace pang
 
   private:
     void UpdateVisibility();
-    u32 ActionScore(const Entity& entity, const AiState& aiState);
     void Render();
-    void HandleActions(float delta_s);
-    void EraseInProgressMoveActions(EntityId entityId);
     Vector2f GetEmptyPos() const;
-    void AddMoveToAction(EntityId playerId, const Vector2f &from, const Vector2f &to);
-    void AddMoveAction(EntityId entityId, const Vector2f& dir);
     void DrawGrid();
     void DrawEntities();
     void DrawBullets();
     void UpdateMessages();
     void Update();
+
+    void PhysicsUpdate(float delta_ms);
 
     void SpawnEnemies();
     void UpdateEnemies();
@@ -65,7 +61,7 @@ namespace pang
 
     bool OnMouseButtonReleased(const Event& event);
 
-    void ReadKeyboard();
+    void HandleInput();
 
     Tile WorldToTile(const Vector2f& p) const;
     Vector2f TileToWorld(u32 x, u32 y) const;
@@ -82,8 +78,6 @@ namespace pang
     unique_ptr<RenderWindow> _renderWindow;
     unique_ptr<WindowEventManager> _eventManager;
 
-    deque<ActionBase*> _actionQueue;
-    deque<ActionBase*> _inprogressActions;
     unordered_map<EntityId, shared_ptr<Entity> > _entities;
     unordered_map<EntityId, shared_ptr<Entity> > _deadEntites;
 
@@ -108,5 +102,6 @@ namespace pang
     EntityId _localPlayerId;
 
     u8 _prevLeft, _prevRight;
+    u64 _tickAcc;
   };
 }

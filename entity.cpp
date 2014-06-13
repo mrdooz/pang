@@ -4,9 +4,14 @@
 using namespace pang;
 
 //----------------------------------------------------------------------------------
-Entity::Entity()
-    : _acc(0,0)
-    , _vel(0,0)
+Entity::Entity(EntityId id, const Vector2f& pos)
+    : _id(id)
+    , _pos(pos)
+    , _prevPos(pos)
+    , _acc(0,0)
+    , _force(0,0)
+    , _mass(1.0f)
+    , _invMass(1/_mass)
     , _rot(PI)
     , _fov(PI / 6)
     , _viewDistance(100)
@@ -16,5 +21,5 @@ Entity::Entity()
 //----------------------------------------------------------------------------------
 Vector2f Entity::Dir() const
 {
-  return Vector2f(sinf(_rot), -cosf(_rot));
+  return Vector2f(sinf(_rot), cosf(_rot));
 }

@@ -1,33 +1,11 @@
 #include "pang.hpp"
 #include "window_event_manager.hpp"
-#include "action.hpp"
 #include "utils.hpp"
+#include "math_utils.hpp"
 #include "sfml_helpers.hpp"
 
 using namespace pang;
 
-bool IsMoveAction(ActionType a)
-{
-  return a == ActionType::Move || a == ActionType::MoveTo;
-}
-
-template <typename T>
-bool LoadProto(const char* filename, T* out)
-{
-  FILE* f = fopen(filename, "rb");
-  if (!f)
-    return false;
-
-  fseek(f, 0, 2);
-  size_t s = ftell(f);
-  fseek(f, 0, 0);
-  string str;
-  str.resize(s);
-  fread((char*)str.c_str(), 1, s, f);
-  fclose(f);
-
-  return google::protobuf::TextFormat::ParseFromString(str, out);
-}
 
 void Line(int x0, int y0, int x1, int y1, vector<Vector2i>* line)
 {
@@ -91,6 +69,7 @@ Game::Game()
     , _localPlayerId(1)
     , _prevLeft(0)
     , _prevRight(0)
+    , _tickAcc(0)
 {
 }
 
@@ -134,9 +113,7 @@ bool Game::Init()
   _level.Init(_gameConfig);
 
   // create local player
-  shared_ptr<Entity> e = make_shared<Entity>();
-  e->_id = _localPlayerId;
-  e->_pos = GetEmptyPos();
+  shared_ptr<Entity> e = make_shared<Entity>(_localPlayerId, GetEmptyPos());
   _entities[_localPlayerId] = e;
 
   _level.SetEntity(WorldToTile(e->_pos), e->_id);
@@ -153,8 +130,8 @@ Vector2f Game::GetEmptyPos() const
   _level.GetSize(&w, &h);
   while (true)
   {
-    Vector2f pos(rand() % w, rand() % h);
-    if (_level.IsValidPos(Tile(pos.x, pos.y)))
+    Vector2f pos((float)(rand() % w), (float)(rand() % h));
+    if (_level.IsValidPos(Tile((u32)pos.x, (u32)pos.y)))
     {
       return (float)_gridSize * pos;
     }
@@ -165,46 +142,15 @@ Vector2f Game::GetEmptyPos() const
 //----------------------------------------------------------------------------------
 void Game::SpawnEnemies()
 {
-  for (u32 i = 0; i < _gameConfig.num_enemies(); ++i)
+  for (int i = 0; i < _gameConfig.num_enemies(); ++i)
   {
     EntityId idx = _localPlayerId + 1 + i;
-    shared_ptr<Entity> e = make_shared<Entity>();
-    e->_id = idx;
-    e->_pos = GetEmptyPos();
+    shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos());
     _entities[idx] = e;
 
     _level.SetEntity(WorldToTile(e->_pos), e->_id);
   }
 }
-
-Vector2f Normaize(const Vector2f& v)
-{
-  float len = sqrtf(v.x * v.x + v.y * v.y);
-  if (len == 0)
-    return Vector2f(0,0);
-
-  return 1 / len * v;
-}
-
-float Dot(const Vector2f& a, const Vector2f& b)
-{
-  return a.x * b.x + a.y * b.y;
-}
-
-//----------------------------------------------------------------------------------
-u32 Game::ActionScore(const Entity& entity, const AiState& aiState)
-{
-  // check if the player is within the viewing cone
-  const Entity* player = _entities[_localPlayerId].get();
-
-  // check angle to player
-  // dot(a,b) = cos(angle)
-  //Vector2f toPlayer = Normalize(player->_pos - entity._pos);
-  //float angle = acosf(Dot(toPlayer, entity._dir));
-
-  return 0;
-}
-
 
 //----------------------------------------------------------------------------------
 void Game::UpdateEnemies()
@@ -278,15 +224,12 @@ Vector2f Game::ClampedDestination(const Vector2f& pos, const Vector2f& dir)
 }
 
 //----------------------------------------------------------------------------------
-void Game::ReadKeyboard()
+void Game::HandleInput()
 {
   if (_playerDead)
     return;
 
   Entity& e = *_entities[_localPlayerId];
-
-  // 0 = no movement, 1 = x axis, 2 = y axis
-  u32 moveAction = 0;
 
   u8 curLeft = Keyboard::isKeyPressed(Keyboard::Left) || Keyboard::isKeyPressed(Keyboard::A);
   u8 curRight = Keyboard::isKeyPressed(Keyboard::Right) || Keyboard::isKeyPressed(Keyboard::D);
@@ -294,33 +237,22 @@ void Game::ReadKeyboard()
   if (curLeft && !_prevLeft)
   {
     e._rot -= PI/2;
-    moveAction = 1;
   }
   else if (curRight && !_prevRight)
   {
     e._rot += PI/2;
-    moveAction = 1;
   }
   else if (Keyboard::isKeyPressed(Keyboard::Up) || Keyboard::isKeyPressed(Keyboard::W))
   {
-    e._vel = e.Dir();
-    moveAction = 2;
+    e._force += 0.001f * e.Dir();
   }
   else if (Keyboard::isKeyPressed(Keyboard::Down) || Keyboard::isKeyPressed(Keyboard::S))
   {
-    e._vel = -e.Dir();
-    moveAction = 2;
+    e._force -= 0.001f * e.Dir();
   }
 
   _prevLeft = curLeft;
   _prevRight = curRight;
-
-  if (moveAction)
-  {
-    // calc new destination based on current pos and direction
-    AddMoveAction(_localPlayerId, e._vel);
-    //AddMoveToAction(_localPlayerId, e._pos, ClampedDestination(e._pos, e.Dir()));
-  }
 }
 
 //----------------------------------------------------------------------------------
@@ -460,101 +392,6 @@ void Game::DrawGrid()
 }
 
 //----------------------------------------------------------------------------------
-void Game::AddMoveAction(EntityId entityId, const Vector2f& dir)
-{
-  // check if a move action for the entity is already in progress
-  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
-  {
-    ActionBase* a = *it;
-    if (a->type == ActionType::Move && a->entityId == entityId)
-    {
-      ActionMove* am = static_cast<ActionMove*>(a);
-      am->dir = dir;
-      return;
-    }
-  }
-
-  ActionMove* am = new ActionMove(entityId);
-  am->dir = dir;
-  _actionQueue.push_back(am);
-}
-
-//----------------------------------------------------------------------------------
-void Game::AddMoveToAction(EntityId entityId, const Vector2f &from, const Vector2f &to)
-{
-  if (!_level.IsValidPos(WorldToTile(from)) || !_level.IsValidPos(WorldToTile(to)))
-  {
-    _entities[entityId]->_vel = Vector2f(0,0);
-    return;
-  }
-
-  Vector2f snappedTo = SnappedPos(to);
-
-  // check if a move action to the given location is already in progress
-  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
-  {
-    ActionBase* a = *it;
-    if (a->type == ActionType::MoveTo && a->entityId == entityId)
-    {
-      ActionMoveTo * m = static_cast<ActionMoveTo *>(a);
-      if (SnappedPos(m->to) == snappedTo)
-      {
-        // The requested move is already in progress, so bail
-        return;
-      }
-    }
-  }
-
-  // check if a move action for the current player exists in the queue; If so, replace it
-  ActionMoveTo * m = nullptr;
-  for (ActionBase* a : _actionQueue)
-  {
-    if (a->type == ActionType::MoveTo && a->entityId == entityId)
-    {
-      ActionMoveTo * aa = static_cast<ActionMoveTo *>(a);
-      Level::Cell* oldCell;
-      _level.GetCell(WorldToTile(aa->to), &oldCell);
-      oldCell->destEntityId = 0;
-      m = aa;
-      break;
-    }
-  }
-
-  // Create the new action if needed
-  if (!m)
-  {
-    m = new ActionMoveTo(entityId);
-    _actionQueue.push_back(m);
-  }
-
-  Level::Cell* cell;
-  _level.GetCell(WorldToTile(to), &cell);
-  cell->destEntityId = entityId;
-
-  m->from = from;
-  m->to = to;
-  m->startTime = _now;
-  m->endTime = _now + milliseconds(500);
-}
-
-//----------------------------------------------------------------------------------
-void Game::EraseInProgressMoveActions(EntityId entityId)
-{
-  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); ++it)
-  {
-    ActionBase* a = *it;
-    if (IsMoveAction(a->type))
-    {
-      // there can only be a single in progress move action per entity, so if we
-      // find one, delete it and return
-      delete a;
-      _inprogressActions.erase(it);
-      return;
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------
 void Game::UpdateVisibility()
 {
   for (auto& kv : _entities)
@@ -589,6 +426,27 @@ void Game::UpdateVisibility()
 }
 
 //----------------------------------------------------------------------------------
+void Game::PhysicsUpdate(float delta_ms)
+{
+  // verlet integration:
+  // xi+1 = xi + (xi - xi-1) + a * dt * dt
+
+  float deltaSq = delta_ms * delta_ms;
+
+  for (const auto& kv : _entities)
+  {
+    Entity* e = kv.second.get();
+
+    Vector2f prevPos = e->_pos;
+    // F = m/a => a = F/m
+    e->_acc = e->_force * e->_invMass;
+    e->_force = Vector2f(0,0);
+    e->_pos += (e->_pos - e->_prevPos) + e->_acc * deltaSq;
+    e->_prevPos = prevPos;
+  }
+}
+
+//----------------------------------------------------------------------------------
 void Game::Update()
 {
   _now = microsec_clock::local_time();
@@ -598,17 +456,27 @@ void Game::Update()
     return;
   }
 
+  static const u64 tickFreq = 100;
+  static const u64 tick_us = 1e6 / tickFreq;
+
+  u64 delts_us = (_now - _lastUpdate).total_microseconds();
+  _tickAcc += delts_us;
+  while (_tickAcc > tick_us)
+  {
+    PhysicsUpdate(tick_us / 1000);
+    _tickAcc -= tick_us;
+  }
+
   float delta = (_now - _lastUpdate).total_milliseconds() / 1000.0f;
 
   _eventManager->Poll();
 
-  ReadKeyboard();
-  HandleActions(delta);
+  HandleInput();
   UpdateVisibility();
 
   Level::Cell* cell;
-  _level.GetCell(WorldToTile(_entities[_localPlayerId]->_pos), &cell);
-  cell->heat = 255;
+  if (_level.GetCell(WorldToTile(_entities[_localPlayerId]->_pos), &cell))
+    cell->heat = 255;
 
   // update all the bullets
   for (auto it = _bullets.begin(); it != _bullets.end(); )
@@ -650,95 +518,6 @@ void Game::Update()
   _lastUpdate = _now;
 }
 
-//----------------------------------------------------------------------------------
-void Game::HandleActions(float delta_s)
-{
-  // Move actions from the queue to the in progress queue
-  for (ActionBase* action : _actionQueue)
-  {
-    EntityId entityId = action->entityId;
-
-    bool instantAction = false;
-
-    if (IsMoveAction(action->type))
-    {
-      // only allow a single in progress move action, so erase any in progress for
-      // the current entity
-      EraseInProgressMoveActions(entityId);
-    }
-    else if (action->type == ActionType::Bullet)
-    {
-      ActionBullet* a = static_cast<ActionBullet*>(action);
-      Bullet b;
-      b.pos = a->pos;
-      b.dir = a->dir;
-      b.entityId = a->entityId;
-      _bullets.push_back(b);
-      instantAction = true;
-    }
-
-    // Either delete the action if it was instant, or move it to
-    // _inprogressActions if it has a duration
-    if (instantAction)
-    {
-      delete action;
-    }
-    else
-    {
-      _inprogressActions.push_back(action);
-    }
-  }
-
-  _actionQueue.clear();
-
-
-  // handle in progress actions
-  for (auto it = _inprogressActions.begin(); it != _inprogressActions.end(); )
-  {
-    ActionBase* action = *it;
-    bool actionComplete = false;
-
-    if (action->type == ActionType::MoveTo)
-    {
-      ActionMoveTo* m = static_cast<ActionMoveTo*>(action);
-      Entity& e = *_entities[m->entityId];
-      Vector2f prevPos = e._pos;
-
-      // interpolate the player position
-      float delta = (float)(_now - m->startTime).total_milliseconds() / (m->endTime - m->startTime).total_milliseconds();
-      e._pos = lerp(m->from, m->to, delta);
-
-      _level.SetEntity(WorldToTile(prevPos), 0);
-      _level.SetEntity(WorldToTile(e._pos), e._id);
-
-      if (_now >= m->endTime)
-      {
-        actionComplete = true;
-        e._vel = Vector2f(0,0);
-        e._pos = m->to;
-        Level::Cell* cell;
-        _level.GetCell(WorldToTile(e._pos), &cell);
-        cell->destEntityId = 0;
-      }
-    }
-    else if (action->type == ActionType::Move)
-    {
-      ActionMove* m = static_cast<ActionMove*>(action);
-      Entity& e = *_entities[m->entityId];
-      e._pos += 10 * delta_s * e._vel;
-    }
-
-    if (actionComplete)
-    {
-      delete action;
-      it = _inprogressActions.erase(it);
-    }
-    else
-    {
-      ++it;
-    }
-  }
-}
 
 //----------------------------------------------------------------------------------
 void Game::Render()
