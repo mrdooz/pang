@@ -8,7 +8,26 @@ namespace pang
   {
     Unknown,
     Seek,
+    Arrive,
+    Pursuit,
+    Wander,
   };
+
+  struct AiState
+  {
+    AiState() : _behavior(Behavior::Unknown) {}
+    Behavior _behavior;
+    Vector2f _lastKnownPlayerState;
+  };
+
+  struct WanderState
+  {
+    WanderState() { memset(this, 0, sizeof(WanderState)); }
+    float _circleOffset;
+    float _circleRadius;
+    float _curAngle;
+  };
+
 
   struct Entity
   {
@@ -17,8 +36,10 @@ namespace pang
     EntityId _id;
     Vector2f _pos;
     Vector2f _prevPos;
+    Vector2f _vel;
     Vector2f _acc;
     Vector2f _force;
+    Vector2f _lookAhead;
     float _mass;
     float _invMass;
     // 0 points straight up, and rotates clockwise. In SFML, (0,-1) points straight up
@@ -31,10 +52,4 @@ namespace pang
     vector<EntityId> _visibleEntities;
   };
 
-  struct AiState
-  {
-    AiState() : _behavior(Behavior::Unknown) {}
-    Behavior _behavior;
-    Vector2f _lastKnownPlayerState;
-  };
 }

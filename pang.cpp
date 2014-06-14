@@ -3,59 +3,12 @@
 #include "utils.hpp"
 #include "math_utils.hpp"
 #include "sfml_helpers.hpp"
+#include "math_utils.hpp"
+#include "behavior.hpp"
 
 using namespace pang;
 
 
-void Line(int x0, int y0, int x1, int y1, vector<Vector2i>* line)
-{
-  line->clear();
-
-  // Bresenham between the points
-  int dx = abs(x1-x0);
-  int sx = x0 < x1 ? 1 : -1;
-  int dy = abs(y1-y0);
-  int sy = y0 < y1 ? 1 : -1;
-
-  if (dx > dy)
-  {
-    int ofs = 0;
-    int threshold = dx;
-    while (true)
-    {
-      line->push_back(Vector2i(x0,y0));
-      if (x0 == x1)
-        break;
-
-      ofs += 2 * dy;
-      if (ofs >= threshold)
-      {
-        y0 += sy;
-        threshold += 2 * dx;
-      }
-      x0 += sx;
-    }
-  }
-  else
-  {
-    int ofs = 0;
-    int threshold = dy;
-    while (true)
-    {
-      line->push_back(Vector2i(x0,y0));
-      if (y0 == y1)
-        break;
-
-      ofs += 2 * dx;
-      if (ofs >= threshold)
-      {
-        x0 += sx;
-        threshold += 2 * dy;
-      }
-      y0 += sy;
-    }
-  }
-}
 
 
 //----------------------------------------------------------------------------------
@@ -65,7 +18,7 @@ Game::Game()
     , _focus(true)
     , _done(false)
     , _playerDead(false)
-    , _pausedEnemies(true)
+    , _pausedEnemies(false)
     , _localPlayerId(1)
     , _prevLeft(0)
     , _prevRight(0)
@@ -107,7 +60,7 @@ bool Game::Init()
     return false;
   }
 
-  if (!LoadProto((base + "config/game.pb").c_str(), &_gameConfig))
+  if (!LoadProto((base + "config/game_large.pb").c_str(), &_gameConfig))
     return 1;
 
   _level.Init(_gameConfig);
@@ -158,7 +111,19 @@ void Game::UpdateEnemies()
   if (_playerDead || _pausedEnemies)
     return;
 
-  Vector2f playerPos(_entities[_localPlayerId]->_pos);
+  Entity* localPlayer = _entities[_localPlayerId].get();
+
+  Vector2f playerPos(localPlayer->_pos);
+
+  for (auto& kv : _entities)
+  {
+    Entity* e = kv.second.get();
+    if (e->_id == _localPlayerId)
+      continue;
+
+    e->_force = BehaviorPursuit(e, localPlayer);
+  }
+
 #if 0
   for (auto& kv : _entities)
   {
@@ -236,11 +201,11 @@ void Game::HandleInput()
 
   if (curLeft && !_prevLeft)
   {
-    e._rot -= PI/2;
+    e._rot -= PI/8;
   }
   else if (curRight && !_prevRight)
   {
-    e._rot += PI/2;
+    e._rot += PI/8;
   }
   else if (Keyboard::isKeyPressed(Keyboard::Up) || Keyboard::isKeyPressed(Keyboard::W))
   {
@@ -425,6 +390,7 @@ void Game::UpdateVisibility()
   }
 }
 
+
 //----------------------------------------------------------------------------------
 void Game::PhysicsUpdate(float delta_ms)
 {
@@ -432,6 +398,7 @@ void Game::PhysicsUpdate(float delta_ms)
   // xi+1 = xi + (xi - xi-1) + a * dt * dt
 
   float deltaSq = delta_ms * delta_ms;
+  float invDelta = 1.0f / delta_ms;
 
   for (const auto& kv : _entities)
   {
@@ -439,10 +406,12 @@ void Game::PhysicsUpdate(float delta_ms)
 
     Vector2f prevPos = e->_pos;
     // F = m/a => a = F/m
-    e->_acc = e->_force * e->_invMass;
+    Vector2f damping = -0.001f * e->_vel;
+    e->_acc = (e->_force + damping) * e->_invMass;
     e->_force = Vector2f(0,0);
     e->_pos += (e->_pos - e->_prevPos) + e->_acc * deltaSq;
     e->_prevPos = prevPos;
+    e->_vel = (e->_pos - e->_prevPos) * invDelta;
   }
 }
 
@@ -577,6 +546,13 @@ void Game::DrawEntities()
     if (e._id == _localPlayerId && (_debugDraw & 0x4))
     {
       AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
+    }
+
+    if (e._id != _localPlayerId)
+    {
+      LineShape ll(e._pos, e._lookAhead);
+      ll.setFillColor(Color::Green);
+      _renderWindow->draw(ll);
     }
   }
 

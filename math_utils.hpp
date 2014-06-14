@@ -1,6 +1,9 @@
 #pragma once
 namespace pang
 {
+  // Bresenham between the points (x0, y0) and (x1, y1) inclusive
+  void Line(int x0, int y0, int x1, int y1, vector<Vector2i>* line);
+
   inline float Dot(const Vector2f& a, const Vector2f& b)
   {
     return a.x * b.x + a.y * b.y;
