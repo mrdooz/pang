@@ -1,5 +1,6 @@
 #include "entity.hpp"
 #include "utils.hpp"
+#include "sfml_helpers.hpp"
 
 using namespace pang;
 
@@ -11,17 +12,32 @@ Entity::Entity(EntityId id, const Vector2f& pos)
     , _vel(0,0)
     , _acc(0,0)
     , _force(0,0)
-    , _lookAhead(pos)
+    , _debug(nullptr)
     , _mass(1.0f + (float)rand() / RAND_MAX)
     , _invMass(1/_mass)
-    , _rot(PI)
+    , _rot(0)
     , _fov(PI / 6)
     , _viewDistance(100)
 {
 }
 
 //----------------------------------------------------------------------------------
+Entity::~Entity()
+{
+  delete exch_null(_debug);
+}
+
+//----------------------------------------------------------------------------------
 Vector2f Entity::Dir() const
 {
-  return Vector2f(sinf(_rot), cosf(_rot));
+  return Vector2f(sinf(_rot), -cosf(_rot));
+}
+
+
+//----------------------------------------------------------------------------------
+void PursuitDebugRenderer::Render(RenderWindow* window)
+{
+  LineShape ll(_entity->_pos, _lookAhead);
+  ll.setFillColor(Color::Green);
+  window->draw(ll);
 }

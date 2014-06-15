@@ -15,7 +15,7 @@ void Level::Init(const config::Game& config)
   Vector2i ofs[] = { Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1) };
 
   // create some random blocks :)
-  for (u32 i = 0; i < config.num_walls(); ++i)
+  for (int i = 0; i < config.num_walls(); ++i)
   {
     Vector2i c(rand() % _width, rand() % _height);
 

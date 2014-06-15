@@ -35,8 +35,12 @@ namespace pang
 
     float s = Length(toTarget) / (Length(e->_vel) + Length(target->_vel));
     Vector2f v = target->_pos + s * target->_vel;
-    const_cast<Entity*>(e)->_lookAhead = v;
+    if (e->_debug)
+    {
+      // meh, is there a better way to do this?
+      PursuitDebugRenderer* p = static_cast<PursuitDebugRenderer*>(e->_debug);
+      p->_lookAhead = v;
+    }
     return BehaviorSeek(e, v);
   }
-
 }

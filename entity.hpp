@@ -4,6 +4,23 @@
 
 namespace pang
 {
+  struct Entity;
+
+  struct DebugRenderer
+  {
+    DebugRenderer(const Entity* entity) : _entity(entity) {}
+    virtual ~DebugRenderer() {};
+    const Entity* _entity;
+    virtual void Render(RenderWindow* window) = 0;
+  };
+
+  struct PursuitDebugRenderer : public DebugRenderer
+  {
+    PursuitDebugRenderer(const Entity* entity) : DebugRenderer(entity) {}
+    virtual void Render(RenderWindow* window);
+    Vector2f _lookAhead;
+  };
+
   enum class Behavior
   {
     Unknown,
@@ -28,10 +45,10 @@ namespace pang
     float _curAngle;
   };
 
-
   struct Entity
   {
     Entity(EntityId id, const Vector2f& pos);
+    ~Entity();
     Vector2f Dir() const;
     EntityId _id;
     Vector2f _pos;
@@ -39,7 +56,7 @@ namespace pang
     Vector2f _vel;
     Vector2f _acc;
     Vector2f _force;
-    Vector2f _lookAhead;
+    DebugRenderer* _debug;
     float _mass;
     float _invMass;
     // 0 points straight up, and rotates clockwise. In SFML, (0,-1) points straight up
@@ -51,5 +68,4 @@ namespace pang
 
     vector<EntityId> _visibleEntities;
   };
-
 }

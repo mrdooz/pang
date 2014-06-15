@@ -14,7 +14,6 @@ using namespace pang;
 //----------------------------------------------------------------------------------
 Game::Game()
     : _gridSize(25)
-    , _debugDraw(0)
     , _focus(true)
     , _done(false)
     , _playerDead(false)
@@ -99,6 +98,7 @@ void Game::SpawnEnemies()
   {
     EntityId idx = _localPlayerId + 1 + i;
     shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos());
+    e->_debug = new PursuitDebugRenderer(e.get());
     _entities[idx] = e;
 
     _level.SetEntity(WorldToTile(e->_pos), e->_id);
@@ -175,10 +175,10 @@ bool Game::OnGainedFocus(const Event& event)
 //----------------------------------------------------------------------------------
 Vector2f Game::SnappedPos(const Vector2f& pos)
 {
-  float ff = _gridSize;
+  float ff = (float)_gridSize;
   float f = ff - 1;
-  int x = (pos.x + f) / ff;
-  int y = (pos.y + f) / ff;
+  int x = (int)((pos.x + f) / ff);
+  int y = (int)((pos.y + f) / ff);
   return Vector2f(x * ff, y * ff);
 }
 
@@ -321,15 +321,23 @@ bool Game::OnKeyPressed(const Event& event)
 //----------------------------------------------------------------------------------
 bool Game::OnKeyReleased(const Event& event)
 {
+  switch (event.key.code)
+  {
+    case Keyboard::Num1: _debugDraw.Toggle(DebugDrawFlags::EnemyInfo); break;
+    case Keyboard::Num2: _debugDraw.Toggle(DebugDrawFlags::PlayerInfo); break;
+    case Keyboard::Num3: _debugDraw.Toggle(DebugDrawFlags::BehaviorInfo); break;
+  }
+
   return true;
 }
 
 //----------------------------------------------------------------------------------
 void Game::DrawGrid()
 {
+  float g = (float)_gridSize;
   _levelSprite.setPosition(0, 0);
   _levelSprite.setTexture(_level.GetTexture());
-  _levelSprite.setScale(_gridSize, _gridSize);
+  _levelSprite.setScale(g, g);
   _renderWindow->draw(_levelSprite);
 
   vector<sf::Vertex> lines;
@@ -341,15 +349,15 @@ void Game::DrawGrid()
   // horizontal
   for (u32 i = 0; i <= h; ++i)
   {
-    lines.push_back(sf::Vertex(Vector2f(0, i*_gridSize), c));
-    lines.push_back(sf::Vertex(Vector2f(w*_gridSize, i*_gridSize), c));
+    lines.push_back(sf::Vertex(Vector2f(0, i*g), c));
+    lines.push_back(sf::Vertex(Vector2f(w*g, i*g), c));
   }
 
   // vertical
   for (u32 i = 0; i <= w; ++i)
   {
-    lines.push_back(sf::Vertex(Vector2f(i*_gridSize, 0), c));
-    lines.push_back(sf::Vertex(Vector2f(i*_gridSize, h*_gridSize), c));
+    lines.push_back(sf::Vertex(Vector2f(i*g, 0), c));
+    lines.push_back(sf::Vertex(Vector2f(i*g, h*g), c));
   }
 
   _renderWindow->draw(lines.data(), lines.size(), sf::Lines);
@@ -390,7 +398,6 @@ void Game::UpdateVisibility()
   }
 }
 
-
 //----------------------------------------------------------------------------------
 void Game::PhysicsUpdate(float delta_ms)
 {
@@ -425,33 +432,43 @@ void Game::Update()
     return;
   }
 
+  // calc the number of physics ticks to take (the physics run with a fixed time step)
   static const u64 tickFreq = 100;
-  static const u64 tick_us = 1e6 / tickFreq;
+  static const u64 tick_us = (u64)(1e6f / tickFreq);
 
-  u64 delts_us = (_now - _lastUpdate).total_microseconds();
-  _tickAcc += delts_us;
+  u64 delta_us = (_now - _lastUpdate).total_microseconds();
+  float delta_s = delta_us / 1e6f;
+  _tickAcc += delta_us;
   while (_tickAcc > tick_us)
   {
     PhysicsUpdate(tick_us / 1000);
     _tickAcc -= tick_us;
   }
 
-  float delta = (_now - _lastUpdate).total_milliseconds() / 1000.0f;
-
   _eventManager->Poll();
 
   HandleInput();
-  UpdateVisibility();
+  //UpdateVisibility();
 
   Level::Cell* cell;
   if (_level.GetCell(WorldToTile(_entities[_localPlayerId]->_pos), &cell))
     cell->heat = 255;
 
-  // update all the bullets
-  for (auto it = _bullets.begin(); it != _bullets.end(); )
+  UpdateBullets(delta_s);
+
+  UpdateEnemies();
+
+  _lastUpdate = _now;
+}
+
+
+//----------------------------------------------------------------------------------
+void Game::UpdateBullets(float delta_s)
+{
+  for (auto it = _bullets.begin(); it != _bullets.end();)
   {
     Bullet& b = *it;
-    b.pos = b.pos + 100 * delta * b.dir;
+    b.pos = b.pos + 100 * delta_s * b.dir;
     if (!_level.IsValidPos(WorldToTile(b.pos)))
     {
       it = _bullets.erase(it);
@@ -460,7 +477,7 @@ void Game::Update()
     {
       bool collision = false;
       // check for player collision
-      for (auto j = _entities.begin(); j != _entities.end(); )
+      for (auto j = _entities.begin(); j != _entities.end();)
       {
         shared_ptr<Entity> e = j->second;
         if (e->_id != b.entityId && SnappedPos(e->_pos) == SnappedPos(b.pos))
@@ -482,11 +499,7 @@ void Game::Update()
     }
   }
 
-  UpdateEnemies();
-
-  _lastUpdate = _now;
 }
-
 
 //----------------------------------------------------------------------------------
 void Game::Render()
@@ -498,7 +511,7 @@ void Game::Render()
     Vector2u s = _renderWindow->getSize();
     _view.setCenter(_entities[_localPlayerId]->_pos);
     _view.setRotation(0);
-    _view.setSize(s.x, s.y);
+    _view.setSize(VectorCast<float>(s));
     _renderWindow->setView(_view);
   }
 
@@ -521,7 +534,8 @@ void Game::Render()
 //----------------------------------------------------------------------------------
 void Game::DrawEntities()
 {
-  Vector2f ofs(_gridSize/2, _gridSize/2);
+  float g = (float)_gridSize;
+  Vector2f ofs(g/2, g/2);
 
   for (const auto& kv : _entities)
   {
@@ -543,16 +557,14 @@ void Game::DrawEntities()
 //    aa.setFillColor(Color(e._visibleEntities.empty() ? 200 : 0, 200, 0, 100));
 //    _renderWindow->draw(aa);
 
-    if (e._id == _localPlayerId && (_debugDraw & 0x4))
+    if (e._id == _localPlayerId && _debugDraw.IsSet(DebugDrawFlags::PlayerInfo))
     {
       AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
     }
 
-    if (e._id != _localPlayerId)
+    if (e._id != _localPlayerId && e._debug && _debugDraw.IsSet(DebugDrawFlags::BehaviorInfo))
     {
-      LineShape ll(e._pos, e._lookAhead);
-      ll.setFillColor(Color::Green);
-      _renderWindow->draw(ll);
+      e._debug->Render(_renderWindow.get());
     }
   }
 
@@ -601,19 +613,19 @@ void Game::AddMessage(MessageType type, const string& str)
   }
   else if (type == MessageType::Info)
   {
-    u8 c = 255 * 0.8f;
+    u8 c = (u8)(255 * 0.8f);
     msg.color = Color(c, c, c);
     msg.endTime = microsec_clock::local_time() + seconds(5);
   }
   else if (type == MessageType::Warning)
   {
-    msg.color = Color(0.9f * 255, 0.9f * 255, 0);
+    msg.color = Color((u8)(0.9f * 255), (u8)(0.9f * 255), 0);
     msg.endTime = microsec_clock::local_time() + seconds(10);
   }
   else
   {
     // error
-    msg.color = Color(0.9f * 255, 0.2f * 255, 0);
+    msg.color = Color((u8)(0.9f * 255), (u8)(0.2f * 255), 0);
     msg.endTime = microsec_clock::local_time() + seconds(20);
   }
 
@@ -623,14 +635,15 @@ void Game::AddMessage(MessageType type, const string& str)
 //------------------------------------------------------------------------------
 Tile Game::WorldToTile(const Vector2f& p) const
 {
-  return Tile(p.x / _gridSize, p.y / _gridSize);
+  return Tile((u32)(p.x / _gridSize), (u32)(p.y / _gridSize));
 }
 
 //------------------------------------------------------------------------------
 Vector2f Game::TileToWorld(u32 x, u32 y) const
 {
   // returns a point in the center of the tile
-  return Vector2f(x * _gridSize + _gridSize / 2, y * _gridSize + _gridSize / 2);
+  float g = (float)_gridSize;
+  return Vector2f(x * g + g / 2, y * g + g / 2);
 }
 
 //------------------------------------------------------------------------------
@@ -644,7 +657,7 @@ void Game::UpdateMessages()
   RectangleShape rect;
   rect.setPosition(x, y);
   rect.setFillColor(Color(128, 128, 128, 128));
-  rect.setSize(Vector2f(16*40, 17 * _messages.size()));
+  rect.setSize(Vector2f(16*40, (float)17 * _messages.size()));
   _renderWindow->draw(rect);
 
   Text text;
@@ -660,7 +673,7 @@ void Game::UpdateMessages()
       time_duration left = msg.endTime - now;
       if (left < seconds(1))
       {
-        msg.color.a = 255 * left.total_milliseconds() / 1000.0f;
+        msg.color.a = (u8)(255 * left.total_milliseconds() / 1000.0f);
       }
 
       text.setPosition(x, y);

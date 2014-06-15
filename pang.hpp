@@ -3,6 +3,7 @@
 #include "entity.hpp"
 #include "level.hpp"
 #include "protocol/game.pb.h"
+#include "flags.hpp"
 
 namespace pang
 {
@@ -41,6 +42,7 @@ namespace pang
     void DrawGrid();
     void DrawEntities();
     void DrawBullets();
+    void UpdateBullets(float delta_s);
     void UpdateMessages();
     void Update();
 
@@ -91,7 +93,11 @@ namespace pang
     vector<Message> _messages;
     Font _font;
     u32 _gridSize;
-    u32 _debugDraw;
+    struct DebugDrawFlags {
+      enum Enum { EnemyInfo = 0x1, PlayerInfo = 0x2, BehaviorInfo = 0x4 };
+      struct Bits { u32 enemyInfo : 1; u32 playerInfo : 1; u32 behaviorInfo : 1; };
+    };
+    Flags<DebugDrawFlags> _debugDraw;
     bool _focus;
     bool _done;
     bool _playerDead;
