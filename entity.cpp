@@ -33,11 +33,3 @@ Vector2f Entity::Dir() const
   return Vector2f(sinf(_rot), -cosf(_rot));
 }
 
-
-//----------------------------------------------------------------------------------
-void PursuitDebugRenderer::Render(RenderWindow* window)
-{
-  LineShape ll(_entity->_pos, _lookAhead);
-  ll.setFillColor(Color::Green);
-  window->draw(ll);
-}

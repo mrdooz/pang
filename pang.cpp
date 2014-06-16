@@ -95,7 +95,8 @@ void Game::SpawnEnemies()
   {
     EntityId idx = _localPlayerId + 1 + i;
     shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos());
-    e->_debug = new PursuitDebugRenderer(e.get());
+    //e->_debug = new PursuitDebugRenderer(e.get());
+    e->_debug = new WanderDebugRenderer(e.get());
     _entities[idx] = e;
 
     _level.SetEntity(WorldToTile(e->_pos), e->_id);
@@ -118,7 +119,8 @@ void Game::UpdateEnemies()
     if (e->_id == _localPlayerId)
       continue;
 
-    e->_force = BehaviorPursuit(e, localPlayer);
+//    e->_force = BehaviorPursuit(e, localPlayer);
+    e->_force = BehaviorWander(e);
   }
 
 #if 0
