@@ -8,9 +8,6 @@
 
 using namespace pang;
 
-
-
-
 //----------------------------------------------------------------------------------
 Game::Game()
     : _gridSize(25)
@@ -410,7 +407,6 @@ void Game::PhysicsUpdate(float delta_ms)
   for (const auto& kv : _entities)
   {
     Entity* e = kv.second.get();
-
     Vector2f prevPos = e->_pos;
     // F = m/a => a = F/m
     Vector2f damping = -0.001f * e->_vel;
@@ -419,6 +415,10 @@ void Game::PhysicsUpdate(float delta_ms)
     e->_pos += (e->_pos - e->_prevPos) + e->_acc * deltaSq;
     e->_prevPos = prevPos;
     e->_vel = (e->_pos - e->_prevPos) * invDelta;
+
+    if (e->_id != _localPlayerId)
+      e->_rot = atan2(e->_vel.x, -e->_vel.y);
+
   }
 }
 
@@ -431,6 +431,8 @@ void Game::Update()
     _lastUpdate = _now;
     return;
   }
+
+  HandleInput();
 
   // calc the number of physics ticks to take (the physics run with a fixed time step)
   static const u64 tickFreq = 100;
@@ -447,7 +449,6 @@ void Game::Update()
 
   _eventManager->Poll();
 
-  HandleInput();
   //UpdateVisibility();
 
   Level::Cell* cell;
@@ -455,7 +456,6 @@ void Game::Update()
     cell->heat = 255;
 
   UpdateBullets(delta_s);
-
   UpdateEnemies();
 
   _lastUpdate = _now;
@@ -543,8 +543,8 @@ void Game::DrawEntities()
     VertexArray triangle(sf::Triangles, 3);
     Transform rotation;
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
-    rotation.rotate(-180 * e._rot / PI);
-    triangle[0].position = ofs + e._pos + rotation.transformPoint(Vector2f(0, 20));
+    rotation.rotate(180 * e._rot / PI);
+    triangle[0].position = ofs + e._pos + rotation.transformPoint(Vector2f(0, -20));
     triangle[0].color = Color::Red;
     triangle[1].position = ofs + e._pos + rotation.transformPoint(Vector2f(-5, 0));
     triangle[1].color = col;
