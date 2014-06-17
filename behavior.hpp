@@ -1,4 +1,6 @@
 #pragma once
+#include "level.hpp"
+
 
 namespace pang
 {
@@ -48,5 +50,5 @@ namespace pang
   Vector2f BehaviorPursuit(const Entity* e, const Entity* target);
 
   Vector2f BehaviorWander(const Entity* e);
-
+  Vector2f BehaviorAvoidWall(const Entity* e, const Level::Cell& cell);
 }

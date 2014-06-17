@@ -3,13 +3,12 @@
 #include "math_utils.hpp"
 #include "sfml_helpers.hpp"
 #include "utils.hpp"
-#include "math_utils.hpp"
 
 namespace pang
 {
   namespace
   {
-    const float MAX_FORCE = 0.00005f;
+    const float MAX_FORCE = 0.0005f;
     const float MAX_SPEED = 1.0f;
 
     const float ANGLE_JITTER = 0.01f;
@@ -130,6 +129,21 @@ namespace pang
 
     // force towards point
     return MAX_FORCE * Normalize(pt - e->_pos);
+  }
+
+  //----------------------------------------------------------------------------------
+  Vector2f BehaviorAvoidWall(const Entity* e, const Level::Cell& cell)
+  {
+    Vector2f res(0,0);
+
+    const auto& fnScale = [](float s) { return s > 5 ? 0 : max(0.0f, min(1.0f, expf(5 - s / 5.0f))); };
+
+    res += MAX_FORCE * fnScale(cell.GetWallDistN()) * Vector2f(0,+1);
+    res += MAX_FORCE * fnScale(cell.GetWallDistS()) * Vector2f(0,-1);
+    res += MAX_FORCE * fnScale(cell.GetWallDistE()) * Vector2f(-1,0);
+    res += MAX_FORCE * fnScale(cell.GetWallDistW()) * Vector2f(+1,0);
+
+    return res;
   }
 
 }

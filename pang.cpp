@@ -62,7 +62,9 @@ bool Game::Init()
   _level.Init(_gameConfig);
 
   // create local player
-  shared_ptr<Entity> e = make_shared<Entity>(_localPlayerId, GetEmptyPos());
+  Vector2f p(0,0);
+  //p = GetEmptyPos();
+  shared_ptr<Entity> e = make_shared<Entity>(_localPlayerId, p);
   _entities[_localPlayerId] = e;
 
   _level.SetEntity(WorldToTile(e->_pos), e->_id);
@@ -120,7 +122,13 @@ void Game::UpdateEnemies()
       continue;
 
 //    e->_force = BehaviorPursuit(e, localPlayer);
-    e->_force = BehaviorWander(e);
+    e->_force = 0.40f * BehaviorWander(e);
+    Level::Cell* cell;
+    if (_level.GetCell(WorldToTile(e->_pos), &cell))
+    {
+      e->_force += 0.60f * BehaviorAvoidWall(e, *cell);
+    }
+
   }
 
 #if 0
@@ -346,17 +354,23 @@ void Game::DrawGrid()
   _level.GetSize(&w, &h);
 
   // horizontal
+  float x = w * g;
+  float y = 0;
   for (u32 i = 0; i <= h; ++i)
   {
-    lines.push_back(sf::Vertex(Vector2f(0, i*g), c));
-    lines.push_back(sf::Vertex(Vector2f(w*g, i*g), c));
+    lines.push_back(sf::Vertex(Vector2f(0, y), c));
+    lines.push_back(sf::Vertex(Vector2f(x, y), c));
+    y += g;
   }
 
   // vertical
+  x = 0;
+  y = h * g;
   for (u32 i = 0; i <= w; ++i)
   {
-    lines.push_back(sf::Vertex(Vector2f(i*g, 0), c));
-    lines.push_back(sf::Vertex(Vector2f(i*g, h*g), c));
+    lines.push_back(sf::Vertex(Vector2f(x, 0), c));
+    lines.push_back(sf::Vertex(Vector2f(x, y), c));
+    x += g;
   }
 
   _renderWindow->draw(lines.data(), lines.size(), sf::Lines);
@@ -414,13 +428,49 @@ void Game::PhysicsUpdate(float delta_ms)
     Vector2f damping = -0.001f * e->_vel;
     e->_acc = (e->_force + damping) * e->_invMass;
     e->_force = Vector2f(0,0);
-    e->_pos += (e->_pos - e->_prevPos) + e->_acc * deltaSq;
-    e->_prevPos = prevPos;
+    Vector2f newPos = e->_pos + (e->_pos - e->_prevPos) + e->_acc * deltaSq;
+
+    // project velocity on x/y axis
+    Vector2f vNorm((newPos - e->_prevPos) * invDelta);
+    Normalize(vNorm);
+    float xProj = Dot(Vector2f(1,0), vNorm);
+    float yProj = Dot(Vector2f(0,1), vNorm);
+
+    Level::Cell* cell;
+    Vector2f p(e->_pos);
+    // right side
+    float g = _gridSize;
+    if (!_level.GetCell(WorldToTile(p + xProj * Vector2f(+g,0)), &cell) || cell->terrain > 0)
+    {
+      e->_pos.x = prevPos.x;
+    }
+    else if (!_level.GetCell(WorldToTile(p + xProj * Vector2f(-g,0)), &cell) || cell->terrain > 0)
+    {
+      e->_pos.x = prevPos.x;
+    }
+    else
+    {
+      e->_pos.x = newPos.x;
+    }
+
+    if (!_level.GetCell(WorldToTile(p + yProj * Vector2f(0,+g)), &cell) || cell->terrain > 0)
+    {
+      e->_pos.y = prevPos.y;
+    }
+    else if (!_level.GetCell(WorldToTile(p + yProj * Vector2f(0,-g)), &cell) || cell->terrain > 0)
+    {
+      e->_pos.y = prevPos.y;
+    }
+    else
+    {
+      e->_pos.y = newPos.y;
+    }
+
     e->_vel = (e->_pos - e->_prevPos) * invDelta;
+    e->_prevPos = prevPos;
 
     if (e->_id != _localPlayerId)
-      e->_rot = atan2(e->_vel.x, -e->_vel.y);
-
+      e->_rot = atan2f(e->_vel.x, -e->_vel.y);
   }
 }
 
@@ -546,11 +596,11 @@ void Game::DrawEntities()
     Transform rotation;
     Color col = e._id == _localPlayerId ? Color::Green : Color::Yellow;
     rotation.rotate(180 * e._rot / PI);
-    triangle[0].position = ofs + e._pos + rotation.transformPoint(Vector2f(0, -20));
+    triangle[0].position = ofs + e._pos + rotation.transformPoint(Vector2f(0, -g/2));
     triangle[0].color = Color::Red;
-    triangle[1].position = ofs + e._pos + rotation.transformPoint(Vector2f(-5, 0));
+    triangle[1].position = ofs + e._pos + rotation.transformPoint(Vector2f(-5, 0.75f * g/2));
     triangle[1].color = col;
-    triangle[2].position = ofs + e._pos + rotation.transformPoint(Vector2f(5, 0));
+    triangle[2].position = ofs + e._pos + rotation.transformPoint(Vector2f(5, 0.75f * g/2));
     triangle[2].color = col;
     _renderWindow->draw(triangle);
 

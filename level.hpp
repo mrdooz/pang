@@ -11,17 +11,18 @@ namespace pang
 
   struct Level
   {
-    // player ids are 16 bit, highest bit indicates if it's a player or a bot
-    //
-
     struct Cell
     {
+      u64 wallDist; // 16 bits for N, S, W, E
       u16 entityId;
-      u16 destEntityId;
       u8 terrain;
       u8 heat;
       u8 newHeat;
       Cell() { memset(this, 0, sizeof(Cell)); }
+      u16 GetWallDistN() const { return (wallDist >> 48) & 0xffff; }
+      u16 GetWallDistS() const { return (wallDist >> 32) & 0xffff; }
+      u16 GetWallDistW() const { return (wallDist >> 16) & 0xffff; }
+      u16 GetWallDistE() const { return (wallDist >>  0) & 0xffff; }
     };
 
     Level() : _width(0), _height(0) {}
@@ -47,6 +48,7 @@ namespace pang
     bool GetEntity(u32 x, u32 y, u16* entityId) const;
     bool Idx(u32 x, u32 y, u32* idx) const;
     bool Idx(u32 x, u32 y, const function<void(u32)>& fn) const;
+    void CalcWallDistance();
 
     Texture _texture;
     u32 _width, _height;

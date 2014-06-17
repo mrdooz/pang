@@ -29,6 +29,7 @@ void Level::Init(const config::Game& config)
     }
   }
 
+  CalcWallDistance();
   CreateTexture();
 }
 
@@ -130,7 +131,18 @@ void Level::CreateTexture()
   {
     for (u32 j = 0; j < _width; ++j)
     {
-      *p++ = _data[i*_width+j].terrain ? Color::White : Color::Black;
+      const Cell& cell = _data[i*_width+j];
+      *p++ = cell.terrain ? Color::White : Color::Black;
+#if 0
+      if (cell.terrain > 0)
+      {
+        *p++ = Color::White;
+      }
+      else
+      {
+        *p++ = Color(max(0, 255 - 10 * cell.GetWallDistW()), 0, 0);
+      }
+#endif
     }
   }
 
@@ -189,6 +201,43 @@ void Level::Diffuse()
       res = res / 9;
       cell->newHeat = min(255u, res);
       ++cell;
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------
+void Level::CalcWallDistance()
+{
+  for (u32 i = 0; i < _height; ++i)
+  {
+    for (u32 j = 0; j < _width; ++j)
+    {
+      Cell& cell = _data[i*_width+j];
+      cell.wallDist = 0;
+      if (cell.terrain == 0)
+      {
+        int k;
+
+        // N
+        for (k = i - 1; k >= 0 && _data[k*_width+j].terrain == 0; --k)
+          continue;
+        cell.wallDist |= (u64)(i - max(0, k)) << 48;
+
+        // S
+        for (k = i + 1; k < _height && _data[k*_width+j].terrain == 0; ++k)
+          continue;
+        cell.wallDist |= (u64)(min((int)_height-1, k) - i) << 32;
+
+        // W
+        for (k = j - 1; k >= 0 && _data[i*_width+k].terrain == 0; --k)
+          continue;
+        cell.wallDist |= (u64)(j - max(0, k)) << 16;
+
+        // E
+        for (k = j + 1; k < _width && _data[i*_width+k].terrain == 0; ++k)
+          continue;
+        cell.wallDist |= (u64)(min((int)_width-1, k) - j) << 0;
+      }
     }
   }
 }
