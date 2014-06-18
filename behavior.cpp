@@ -136,7 +136,8 @@ namespace pang
   {
     Vector2f res(0,0);
 
-    const auto& fnScale = [](float s) { return s > 5 ? 0 : max(0.0f, min(1.0f, expf(5 - s / 5.0f))); };
+//    const auto& fnScale = [](float s) { return s > 5 ? 0 : max(0.0f, min(1.0f, expf(5 - s / 5.0f))); };
+    const auto& fnScale = [](float s) { return s > 5 ? 0 : max(0.0f, min(1.0f, 5 - s / 5.0f)); };
 
     res += MAX_FORCE * fnScale(cell.GetWallDistN()) * Vector2f(0,+1);
     res += MAX_FORCE * fnScale(cell.GetWallDistS()) * Vector2f(0,-1);

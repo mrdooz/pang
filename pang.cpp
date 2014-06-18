@@ -63,7 +63,7 @@ bool Game::Init()
 
   // create local player
   Vector2f p(0,0);
-  //p = GetEmptyPos();
+  p = GetEmptyPos();
   shared_ptr<Entity> e = make_shared<Entity>(_localPlayerId, p);
   _entities[_localPlayerId] = e;
 
@@ -333,6 +333,7 @@ bool Game::OnKeyReleased(const Event& event)
     case Keyboard::Num1: _debugDraw.Toggle(DebugDrawFlags::EnemyInfo); break;
     case Keyboard::Num2: _debugDraw.Toggle(DebugDrawFlags::PlayerInfo); break;
     case Keyboard::Num3: _debugDraw.Toggle(DebugDrawFlags::BehaviorInfo); break;
+    case Keyboard::Num4: _debugDraw.Toggle(DebugDrawFlags::PlayerCone); break;
   }
 
   return true;
@@ -389,6 +390,8 @@ void Game::UpdateVisibility()
     const Vector2f& pos = e->_pos;
     const Vector2f& dir = e->Dir();
 
+    const Tile& t0 = WorldToTile(pos);
+
     for (auto& innerKv : _entities)
     {
       shared_ptr<Entity>& e2 = innerKv.second;
@@ -406,7 +409,26 @@ void Game::UpdateVisibility()
       // dot(a,b) = cos(theta)
       float angle = acosf(Dot(toEntity, dir));
       if (angle < e->_fov)
-        e->_visibleEntities.push_back(e2->_id);
+      {
+        // do a LOS check
+        vector<Vector2i> path;
+        const Tile& t1 = WorldToTile(e2->_pos);
+
+        Line(t0.x, t0.y, t1.x, t1.y, &path);
+        Level::Cell* cell;
+        bool intersect = false;
+        for (const Vector2i& p : path)
+        {
+          if (_level.GetCell(Tile(p.x, p.y), &cell) && cell->terrain)
+          {
+            intersect = true;
+            break;
+          }
+        }
+
+        if (!intersect)
+          e->_visibleEntities.push_back(e2->_id);
+      }
     }
   }
 }
@@ -430,42 +452,17 @@ void Game::PhysicsUpdate(float delta_ms)
     e->_force = Vector2f(0,0);
     Vector2f newPos = e->_pos + (e->_pos - e->_prevPos) + e->_acc * deltaSq;
 
-    // project velocity on x/y axis
-    Vector2f vNorm((newPos - e->_prevPos) * invDelta);
-    Normalize(vNorm);
-    float xProj = Dot(Vector2f(1,0), vNorm);
-    float yProj = Dot(Vector2f(0,1), vNorm);
-
     Level::Cell* cell;
-    Vector2f p(e->_pos);
-    // right side
-    float g = _gridSize;
-    if (!_level.GetCell(WorldToTile(p + xProj * Vector2f(+g,0)), &cell) || cell->terrain > 0)
+    if (!_level.GetCell(WorldToTile(newPos), &cell) || cell->terrain > 0)
     {
-      e->_pos.x = prevPos.x;
-    }
-    else if (!_level.GetCell(WorldToTile(p + xProj * Vector2f(-g,0)), &cell) || cell->terrain > 0)
-    {
-      e->_pos.x = prevPos.x;
+      // penetration, so project the entity backwards
+      Vector2f dir = (newPos - prevPos);
+      e->_pos -= dir;
     }
     else
     {
-      e->_pos.x = newPos.x;
+      e->_pos = newPos;
     }
-
-    if (!_level.GetCell(WorldToTile(p + yProj * Vector2f(0,+g)), &cell) || cell->terrain > 0)
-    {
-      e->_pos.y = prevPos.y;
-    }
-    else if (!_level.GetCell(WorldToTile(p + yProj * Vector2f(0,-g)), &cell) || cell->terrain > 0)
-    {
-      e->_pos.y = prevPos.y;
-    }
-    else
-    {
-      e->_pos.y = newPos.y;
-    }
-
     e->_vel = (e->_pos - e->_prevPos) * invDelta;
     e->_prevPos = prevPos;
 
@@ -501,7 +498,7 @@ void Game::Update()
 
   _eventManager->Poll();
 
-  //UpdateVisibility();
+  UpdateVisibility();
 
   Level::Cell* cell;
   if (_level.GetCell(WorldToTile(_entities[_localPlayerId]->_pos), &cell))
@@ -605,9 +602,12 @@ void Game::DrawEntities()
     _renderWindow->draw(triangle);
 
     // draw the visibility cone
-//    ArcShape aa(e._pos + ofs, e._viewDistance, e._rot - e._fov, e._rot + e._fov);
-//    aa.setFillColor(Color(e._visibleEntities.empty() ? 200 : 0, 200, 0, 100));
-//    _renderWindow->draw(aa);
+    if (_debugDraw.IsSet(DebugDrawFlags::PlayerCone) && e._id == _localPlayerId)
+    {
+      ArcShape aa(e._pos + ofs, e._viewDistance, e._rot - e._fov, e._rot + e._fov);
+      aa.setFillColor(Color(e._visibleEntities.empty() ? 200 : 0, 200, 0, 100));
+      _renderWindow->draw(aa);
+    }
 
     if (e._id == _localPlayerId && _debugDraw.IsSet(DebugDrawFlags::PlayerInfo))
     {

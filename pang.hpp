@@ -94,8 +94,8 @@ namespace pang
     Font _font;
     u32 _gridSize;
     struct DebugDrawFlags {
-      enum Enum { EnemyInfo = 0x1, PlayerInfo = 0x2, BehaviorInfo = 0x4 };
-      struct Bits { u32 enemyInfo : 1; u32 playerInfo : 1; u32 behaviorInfo : 1; };
+      enum Enum { EnemyInfo = 0x1, PlayerInfo = 0x2, BehaviorInfo = 0x4, PlayerCone = 0x8 };
+      struct Bits { u32 enemyInfo : 1; u32 playerInfo : 1; u32 behaviorInfo : 1; u32 playerCone : 1; };
     };
     Flags<DebugDrawFlags> _debugDraw;
     bool _focus;

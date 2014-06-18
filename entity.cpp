@@ -17,7 +17,7 @@ Entity::Entity(EntityId id, const Vector2f& pos)
     , _invMass(1/_mass)
     , _rot(0)
     , _fov(PI / 6)
-    , _viewDistance(100)
+    , _viewDistance(500)
 {
 }
 
