@@ -35,10 +35,11 @@ void protobuf_AssignDesc_game_2eproto() {
       "game.proto");
   GOOGLE_CHECK(file != NULL);
   Game_descriptor_ = file->message_type(0);
-  static const int Game_offsets_[5] = {
+  static const int Game_offsets_[6] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, width_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, height_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, num_enemies_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, num_squads_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, mobs_per_squad_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, num_walls_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(Game, max_wall_size_),
   };
@@ -83,10 +84,10 @@ void protobuf_AddDesc_game_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
-    "\n\ngame.proto\022\013pang.config\"d\n\004Game\022\r\n\005wid"
-    "th\030\001 \001(\005\022\016\n\006height\030\002 \001(\005\022\023\n\013num_enemies\030"
-    "\003 \001(\005\022\021\n\tnum_walls\030\004 \001(\005\022\025\n\rmax_wall_siz"
-    "e\030\005 \001(\002", 127);
+    "\n\ngame.proto\022\013pang.config\"{\n\004Game\022\r\n\005wid"
+    "th\030\001 \001(\005\022\016\n\006height\030\002 \001(\005\022\022\n\nnum_squads\030\003"
+    " \001(\005\022\026\n\016mobs_per_squad\030\004 \001(\005\022\021\n\tnum_wall"
+    "s\030\005 \001(\005\022\025\n\rmax_wall_size\030\006 \001(\002", 150);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "game.proto", &protobuf_RegisterTypes);
   Game::default_instance_ = new Game();
@@ -106,7 +107,8 @@ struct StaticDescriptorInitializer_game_2eproto {
 #ifndef _MSC_VER
 const int Game::kWidthFieldNumber;
 const int Game::kHeightFieldNumber;
-const int Game::kNumEnemiesFieldNumber;
+const int Game::kNumSquadsFieldNumber;
+const int Game::kMobsPerSquadFieldNumber;
 const int Game::kNumWallsFieldNumber;
 const int Game::kMaxWallSizeFieldNumber;
 #endif  // !_MSC_VER
@@ -129,7 +131,8 @@ void Game::SharedCtor() {
   _cached_size_ = 0;
   width_ = 0;
   height_ = 0;
-  num_enemies_ = 0;
+  num_squads_ = 0;
+  mobs_per_squad_ = 0;
   num_walls_ = 0;
   max_wall_size_ = 0;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -169,7 +172,8 @@ void Game::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     width_ = 0;
     height_ = 0;
-    num_enemies_ = 0;
+    num_squads_ = 0;
+    mobs_per_squad_ = 0;
     num_walls_ = 0;
     max_wall_size_ = 0;
   }
@@ -210,28 +214,44 @@ bool Game::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(24)) goto parse_num_enemies;
+        if (input->ExpectTag(24)) goto parse_num_squads;
         break;
       }
 
-      // optional int32 num_enemies = 3;
+      // optional int32 num_squads = 3;
       case 3: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_num_enemies:
+         parse_num_squads:
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &num_enemies_)));
-          set_has_num_enemies();
+                 input, &num_squads_)));
+          set_has_num_squads();
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(32)) goto parse_num_walls;
+        if (input->ExpectTag(32)) goto parse_mobs_per_squad;
         break;
       }
 
-      // optional int32 num_walls = 4;
+      // optional int32 mobs_per_squad = 4;
       case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_mobs_per_squad:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &mobs_per_squad_)));
+          set_has_mobs_per_squad();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(40)) goto parse_num_walls;
+        break;
+      }
+
+      // optional int32 num_walls = 5;
+      case 5: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
          parse_num_walls:
@@ -242,12 +262,12 @@ bool Game::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(45)) goto parse_max_wall_size;
+        if (input->ExpectTag(53)) goto parse_max_wall_size;
         break;
       }
 
-      // optional float max_wall_size = 5;
-      case 5: {
+      // optional float max_wall_size = 6;
+      case 6: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32) {
          parse_max_wall_size:
@@ -290,19 +310,24 @@ void Game::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->height(), output);
   }
 
-  // optional int32 num_enemies = 3;
-  if (has_num_enemies()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->num_enemies(), output);
+  // optional int32 num_squads = 3;
+  if (has_num_squads()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->num_squads(), output);
   }
 
-  // optional int32 num_walls = 4;
+  // optional int32 mobs_per_squad = 4;
+  if (has_mobs_per_squad()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(4, this->mobs_per_squad(), output);
+  }
+
+  // optional int32 num_walls = 5;
   if (has_num_walls()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(4, this->num_walls(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(5, this->num_walls(), output);
   }
 
-  // optional float max_wall_size = 5;
+  // optional float max_wall_size = 6;
   if (has_max_wall_size()) {
-    ::google::protobuf::internal::WireFormatLite::WriteFloat(5, this->max_wall_size(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteFloat(6, this->max_wall_size(), output);
   }
 
   if (!unknown_fields().empty()) {
@@ -323,19 +348,24 @@ void Game::SerializeWithCachedSizes(
     target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->height(), target);
   }
 
-  // optional int32 num_enemies = 3;
-  if (has_num_enemies()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(3, this->num_enemies(), target);
+  // optional int32 num_squads = 3;
+  if (has_num_squads()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(3, this->num_squads(), target);
   }
 
-  // optional int32 num_walls = 4;
+  // optional int32 mobs_per_squad = 4;
+  if (has_mobs_per_squad()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(4, this->mobs_per_squad(), target);
+  }
+
+  // optional int32 num_walls = 5;
   if (has_num_walls()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(4, this->num_walls(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(5, this->num_walls(), target);
   }
 
-  // optional float max_wall_size = 5;
+  // optional float max_wall_size = 6;
   if (has_max_wall_size()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteFloatToArray(5, this->max_wall_size(), target);
+    target = ::google::protobuf::internal::WireFormatLite::WriteFloatToArray(6, this->max_wall_size(), target);
   }
 
   if (!unknown_fields().empty()) {
@@ -363,21 +393,28 @@ int Game::ByteSize() const {
           this->height());
     }
 
-    // optional int32 num_enemies = 3;
-    if (has_num_enemies()) {
+    // optional int32 num_squads = 3;
+    if (has_num_squads()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int32Size(
-          this->num_enemies());
+          this->num_squads());
     }
 
-    // optional int32 num_walls = 4;
+    // optional int32 mobs_per_squad = 4;
+    if (has_mobs_per_squad()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int32Size(
+          this->mobs_per_squad());
+    }
+
+    // optional int32 num_walls = 5;
     if (has_num_walls()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int32Size(
           this->num_walls());
     }
 
-    // optional float max_wall_size = 5;
+    // optional float max_wall_size = 6;
     if (has_max_wall_size()) {
       total_size += 1 + 4;
     }
@@ -415,8 +452,11 @@ void Game::MergeFrom(const Game& from) {
     if (from.has_height()) {
       set_height(from.height());
     }
-    if (from.has_num_enemies()) {
-      set_num_enemies(from.num_enemies());
+    if (from.has_num_squads()) {
+      set_num_squads(from.num_squads());
+    }
+    if (from.has_mobs_per_squad()) {
+      set_mobs_per_squad(from.mobs_per_squad());
     }
     if (from.has_num_walls()) {
       set_num_walls(from.num_walls());
@@ -449,7 +489,8 @@ void Game::Swap(Game* other) {
   if (other != this) {
     std::swap(width_, other->width_);
     std::swap(height_, other->height_);
-    std::swap(num_enemies_, other->num_enemies_);
+    std::swap(num_squads_, other->num_squads_);
+    std::swap(mobs_per_squad_, other->mobs_per_squad_);
     std::swap(num_walls_, other->num_walls_);
     std::swap(max_wall_size_, other->max_wall_size_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);

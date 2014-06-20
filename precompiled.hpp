@@ -26,6 +26,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/date_time.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <boost/array.hpp>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -115,6 +116,7 @@ namespace pang
   using boost::posix_time::microsec_clock;
   using boost::posix_time::milliseconds;
   using boost::posix_time::seconds;
+  using boost::array;
 
 }
 

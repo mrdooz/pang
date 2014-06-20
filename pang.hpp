@@ -25,6 +25,7 @@ namespace pang
     Vector2f pos;
   };
 
+
   class Game
   {
   public:

@@ -4,6 +4,7 @@ namespace pang
 {
 
   typedef u16 EntityId;
+  typedef u16 SquadId;
 
   struct Tile
   {

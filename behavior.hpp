@@ -31,19 +31,17 @@ namespace pang
 
   enum class Behavior
   {
-    Unknown,
     Seek,
     Arrive,
     Pursuit,
     Wander,
+    AvoidWall,
+    BehaviorCount,
   };
 
-  struct AiState
-  {
-    AiState() : _behavior(Behavior::Unknown) {}
-    Behavior _behavior;
-    Vector2f _lastKnownPlayerState;
-  };
+  typedef array<float, (u32)Behavior::BehaviorCount> BehaviorProfile;
+
+  Vector2f ApplyBehaviorProfile(const Entity* e, const BehaviorProfile& p);
 
   Vector2f BehaviorSeek(const Entity* e, const Vector2f& dest);
   Vector2f BehaviorArrive(const Entity* e, const Vector2f& dest);
@@ -51,4 +49,51 @@ namespace pang
 
   Vector2f BehaviorWander(const Entity* e);
   Vector2f BehaviorAvoidWall(const Entity* e, const Level::Cell& cell);
+
+  enum class AiMessageType
+  {
+    PlayerSpotted,
+  };
+
+
+  struct AiMessage
+  {
+    AiMessage() {}
+    AiMessageType type;
+    union
+    {
+      struct
+      {
+        Vector2f pos;
+
+      } playerSpotted;
+    };
+
+    static AiMessage MakePlayerSpotted(const Vector2f& pos)
+    {
+      AiMessage msg;
+      msg.type = AiMessageType::PlayerSpotted;
+      msg.playerSpotted.pos = pos;
+      return msg;
+    }
+  };
+
+  struct Coordinator
+  {
+    static bool Create();
+    static bool Destroy();
+    static Coordinator& Instance();
+
+    void SendMessage(const AiMessage& msg);
+    void Update();
+
+  private:
+    static Coordinator* _instance;
+
+    deque<AiMessage> _messageQueue;
+  };
+
+  #define COORDINATOR Coordinator::Instance()
+
+
 }

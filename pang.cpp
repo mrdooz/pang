@@ -57,9 +57,11 @@ bool Game::Init()
   }
 
   if (!LoadProto((base + "config/game_large.pb").c_str(), &_gameConfig))
-    return 1;
+    return false;
 
   _level.Init(_gameConfig);
+  if (!COORDINATOR.Create())
+    return false;
 
   // create local player
   Vector2f p(0,0);
@@ -93,15 +95,19 @@ Vector2f Game::GetEmptyPos() const
 //----------------------------------------------------------------------------------
 void Game::SpawnEnemies()
 {
-  for (int i = 0; i < _gameConfig.num_enemies(); ++i)
+  assert(_gameConfig.mobs_per_squad() < 16);
+  for (int i = 0; i < _gameConfig.num_squads(); ++i)
   {
-    EntityId idx = _localPlayerId + 1 + i;
-    shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos());
-    //e->_debug = new PursuitDebugRenderer(e.get());
-    e->_debug = new WanderDebugRenderer(e.get());
-    _entities[idx] = e;
+    for (int j = 0; j < _gameConfig.mobs_per_squad(); ++j)
+    {
+      EntityId idx = ((i+1) << 4) + j;
+      shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos());
+      //e->_debug = new PursuitDebugRenderer(e.get());
+      e->_debug = new WanderDebugRenderer(e.get());
+      _entities[idx] = e;
 
-    _level.SetEntity(WorldToTile(e->_pos), e->_id);
+      _level.SetEntity(WorldToTile(e->_pos), e->_id);
+    }
   }
 }
 
@@ -378,6 +384,7 @@ void Game::DrawGrid()
 
 }
 
+
 //----------------------------------------------------------------------------------
 void Game::UpdateVisibility()
 {
@@ -385,6 +392,7 @@ void Game::UpdateVisibility()
   {
     shared_ptr<Entity>& e = kv.second;
     e->_visibleEntities.clear();
+    bool localPlayer = e->_id == _localPlayerId;
 
     float distSq = e->_viewDistance * e->_viewDistance;
     const Vector2f& pos = e->_pos;
@@ -395,7 +403,7 @@ void Game::UpdateVisibility()
     for (auto& innerKv : _entities)
     {
       shared_ptr<Entity>& e2 = innerKv.second;
-      if (e->_id == e2->_id)
+      if (e->_id == e2->_id || (localPlayer == (e2->_id == _localPlayerId)) )
         continue;
 
       // first, check distance
@@ -427,7 +435,15 @@ void Game::UpdateVisibility()
         }
 
         if (!intersect)
+        {
           e->_visibleEntities.push_back(e2->_id);
+          if (!localPlayer)
+          {
+            // monster has spotted the player, so report it
+            COORDINATOR.SendMessage(AiMessage::MakePlayerSpotted(e2->_pos));
+            AddMessage(MessageType::Debug, toString("player spotted by: %hd", e->_id));
+          }
+        }
       }
     }
   }
@@ -505,6 +521,8 @@ void Game::Update()
     cell->heat = 255;
 
   UpdateBullets(delta_s);
+
+  COORDINATOR.Update();
   UpdateEnemies();
 
   _lastUpdate = _now;

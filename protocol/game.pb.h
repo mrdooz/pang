@@ -106,24 +106,31 @@ class Game : public ::google::protobuf::Message {
   inline ::google::protobuf::int32 height() const;
   inline void set_height(::google::protobuf::int32 value);
 
-  // optional int32 num_enemies = 3;
-  inline bool has_num_enemies() const;
-  inline void clear_num_enemies();
-  static const int kNumEnemiesFieldNumber = 3;
-  inline ::google::protobuf::int32 num_enemies() const;
-  inline void set_num_enemies(::google::protobuf::int32 value);
+  // optional int32 num_squads = 3;
+  inline bool has_num_squads() const;
+  inline void clear_num_squads();
+  static const int kNumSquadsFieldNumber = 3;
+  inline ::google::protobuf::int32 num_squads() const;
+  inline void set_num_squads(::google::protobuf::int32 value);
 
-  // optional int32 num_walls = 4;
+  // optional int32 mobs_per_squad = 4;
+  inline bool has_mobs_per_squad() const;
+  inline void clear_mobs_per_squad();
+  static const int kMobsPerSquadFieldNumber = 4;
+  inline ::google::protobuf::int32 mobs_per_squad() const;
+  inline void set_mobs_per_squad(::google::protobuf::int32 value);
+
+  // optional int32 num_walls = 5;
   inline bool has_num_walls() const;
   inline void clear_num_walls();
-  static const int kNumWallsFieldNumber = 4;
+  static const int kNumWallsFieldNumber = 5;
   inline ::google::protobuf::int32 num_walls() const;
   inline void set_num_walls(::google::protobuf::int32 value);
 
-  // optional float max_wall_size = 5;
+  // optional float max_wall_size = 6;
   inline bool has_max_wall_size() const;
   inline void clear_max_wall_size();
-  static const int kMaxWallSizeFieldNumber = 5;
+  static const int kMaxWallSizeFieldNumber = 6;
   inline float max_wall_size() const;
   inline void set_max_wall_size(float value);
 
@@ -133,8 +140,10 @@ class Game : public ::google::protobuf::Message {
   inline void clear_has_width();
   inline void set_has_height();
   inline void clear_has_height();
-  inline void set_has_num_enemies();
-  inline void clear_has_num_enemies();
+  inline void set_has_num_squads();
+  inline void clear_has_num_squads();
+  inline void set_has_mobs_per_squad();
+  inline void clear_has_mobs_per_squad();
   inline void set_has_num_walls();
   inline void clear_has_num_walls();
   inline void set_has_max_wall_size();
@@ -144,12 +153,13 @@ class Game : public ::google::protobuf::Message {
 
   ::google::protobuf::int32 width_;
   ::google::protobuf::int32 height_;
-  ::google::protobuf::int32 num_enemies_;
+  ::google::protobuf::int32 num_squads_;
+  ::google::protobuf::int32 mobs_per_squad_;
   ::google::protobuf::int32 num_walls_;
   float max_wall_size_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(6 + 31) / 32];
 
   friend void  protobuf_AddDesc_game_2eproto();
   friend void protobuf_AssignDesc_game_2eproto();
@@ -209,37 +219,59 @@ inline void Game::set_height(::google::protobuf::int32 value) {
   height_ = value;
 }
 
-// optional int32 num_enemies = 3;
-inline bool Game::has_num_enemies() const {
+// optional int32 num_squads = 3;
+inline bool Game::has_num_squads() const {
   return (_has_bits_[0] & 0x00000004u) != 0;
 }
-inline void Game::set_has_num_enemies() {
+inline void Game::set_has_num_squads() {
   _has_bits_[0] |= 0x00000004u;
 }
-inline void Game::clear_has_num_enemies() {
+inline void Game::clear_has_num_squads() {
   _has_bits_[0] &= ~0x00000004u;
 }
-inline void Game::clear_num_enemies() {
-  num_enemies_ = 0;
-  clear_has_num_enemies();
+inline void Game::clear_num_squads() {
+  num_squads_ = 0;
+  clear_has_num_squads();
 }
-inline ::google::protobuf::int32 Game::num_enemies() const {
-  return num_enemies_;
+inline ::google::protobuf::int32 Game::num_squads() const {
+  return num_squads_;
 }
-inline void Game::set_num_enemies(::google::protobuf::int32 value) {
-  set_has_num_enemies();
-  num_enemies_ = value;
+inline void Game::set_num_squads(::google::protobuf::int32 value) {
+  set_has_num_squads();
+  num_squads_ = value;
 }
 
-// optional int32 num_walls = 4;
-inline bool Game::has_num_walls() const {
+// optional int32 mobs_per_squad = 4;
+inline bool Game::has_mobs_per_squad() const {
   return (_has_bits_[0] & 0x00000008u) != 0;
 }
-inline void Game::set_has_num_walls() {
+inline void Game::set_has_mobs_per_squad() {
   _has_bits_[0] |= 0x00000008u;
 }
-inline void Game::clear_has_num_walls() {
+inline void Game::clear_has_mobs_per_squad() {
   _has_bits_[0] &= ~0x00000008u;
+}
+inline void Game::clear_mobs_per_squad() {
+  mobs_per_squad_ = 0;
+  clear_has_mobs_per_squad();
+}
+inline ::google::protobuf::int32 Game::mobs_per_squad() const {
+  return mobs_per_squad_;
+}
+inline void Game::set_mobs_per_squad(::google::protobuf::int32 value) {
+  set_has_mobs_per_squad();
+  mobs_per_squad_ = value;
+}
+
+// optional int32 num_walls = 5;
+inline bool Game::has_num_walls() const {
+  return (_has_bits_[0] & 0x00000010u) != 0;
+}
+inline void Game::set_has_num_walls() {
+  _has_bits_[0] |= 0x00000010u;
+}
+inline void Game::clear_has_num_walls() {
+  _has_bits_[0] &= ~0x00000010u;
 }
 inline void Game::clear_num_walls() {
   num_walls_ = 0;
@@ -253,15 +285,15 @@ inline void Game::set_num_walls(::google::protobuf::int32 value) {
   num_walls_ = value;
 }
 
-// optional float max_wall_size = 5;
+// optional float max_wall_size = 6;
 inline bool Game::has_max_wall_size() const {
-  return (_has_bits_[0] & 0x00000010u) != 0;
+  return (_has_bits_[0] & 0x00000020u) != 0;
 }
 inline void Game::set_has_max_wall_size() {
-  _has_bits_[0] |= 0x00000010u;
+  _has_bits_[0] |= 0x00000020u;
 }
 inline void Game::clear_has_max_wall_size() {
-  _has_bits_[0] &= ~0x00000010u;
+  _has_bits_[0] &= ~0x00000020u;
 }
 inline void Game::clear_max_wall_size() {
   max_wall_size_ = 0;

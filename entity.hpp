@@ -6,6 +6,11 @@ namespace pang
 {
   struct DebugRenderer;
 
+  struct Squad
+  {
+    u16 _id;
+  };
+
   struct Entity
   {
     Entity(EntityId id, const Vector2f& pos);
@@ -26,6 +31,7 @@ namespace pang
     // fov is symmetric along the direction vector
     float _fov;
     float _viewDistance;
+    SquadId _squadId;
 
     vector<EntityId> _visibleEntities;
   };

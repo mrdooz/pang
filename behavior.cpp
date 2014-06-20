@@ -147,4 +147,61 @@ namespace pang
     return res;
   }
 
+  //----------------------------------------------------------------------------------
+  Vector2f ApplyBehaviorProfile(const Entity* e, const BehaviorProfile& p)
+  {
+    Vector2f res(0,0);
+
+    return res;
+  }
+
+
+  //----------------------------------------------------------------------------------
+  Coordinator* Coordinator::_instance;
+
+  //----------------------------------------------------------------------------------
+  bool Coordinator::Create()
+  {
+    assert(!_instance);
+    _instance = new Coordinator();
+    return true;
+  }
+
+  //----------------------------------------------------------------------------------
+  bool Coordinator::Destroy()
+  {
+    assert(_instance);
+    delete exch_null(_instance);
+    return true;
+  }
+
+
+  //----------------------------------------------------------------------------------
+  Coordinator& Coordinator::Instance()
+  {
+    return *_instance;
+  }
+
+  //----------------------------------------------------------------------------------
+  void Coordinator::SendMessage(const AiMessage& msg)
+  {
+    _messageQueue.push_back(msg);
+  }
+
+  //----------------------------------------------------------------------------------
+  void Coordinator::Update()
+  {
+    for (const AiMessage& msg : _messageQueue)
+    {
+      if (msg.type == AiMessageType::PlayerSpotted)
+      {
+
+      }
+    }
+
+    _messageQueue.clear();
+
+  }
+
+
 }
