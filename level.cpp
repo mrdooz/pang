@@ -39,8 +39,34 @@ bool Level::Init(const config::Game& config)
   return true;
 }
 
+
+struct Partition
+{
+  enum Location
+  {
+    N, S, E, W
+  };
+
+  enum Corner
+  {
+    TopLeft, TopRight, BottomLeft, BottomRight,
+  };
+
+  Partition(const sf::IntRect& bounds)
+      : _bounds(bounds)
+  {
+    memset(_rooms, 0xff, sizeof(_rooms));
+    memset(_partitions, 0xff, sizeof(_partitions));
+  }
+
+  sf::IntRect _bounds;
+  u32 _rooms[4];
+  u32 _partitions[4];
+};
+
 struct Room
 {
+  Room(u32 id) : _id(id) {}
   u32 _id;
   sf::IntRect _bounds;
 };
@@ -50,82 +76,99 @@ struct Generator
 {
   // level generator based on: http://www.moddb.com/games/frozen-synapse/news/frozen-synapse-procedural-level-generation
   void Run(const pang::level::Level& config);
-  void RunInner(const sf::IntRect& bounds);
-  Room CreateRoom(const sf::IntRect& bounds, sf::IntRect* leftBounds, sf::IntRect* rightBounds);
+  void RunInner(Partition& parent);
+  Room CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRect* rightBounds);
 
   pang::level::Level _config;
   sf::IntRect _bounds;
   vector<Room> _rooms;
+  vector<Partition> _partitions;
 };
-
-//----------------------------------------------------------------------------------
-void Generator::RunInner(const sf::IntRect& bounds)
-{
-  if (_rooms.size() >= _config.num_rooms() || bounds.width < _config.min_room_width() || bounds.height < _config.min_room_height())
-    return;
-
-  sf::IntRect left, right;
-  _rooms.push_back(CreateRoom(bounds, &left, &right));
-  RunInner(left);
-  RunInner(right);
-}
 
 //----------------------------------------------------------------------------------
 void Generator::Run(const pang::level::Level& config)
 {
   _config = config;
 
-  // left, top, width, height
-  _bounds = sf::IntRect(0, 0, config.width(), config.height());
-  RunInner(_bounds);
+  // the bounds are retracted to allow for a 1 pixel wall
+  _bounds = sf::IntRect(1, 1, config.width() - 2, config.height() - 2);
+
+  // add the global partition
+  _partitions.push_back(Partition(_bounds));
+  RunInner(_partitions.back());
 }
 
 //----------------------------------------------------------------------------------
-Room Generator::CreateRoom(const sf::IntRect& bounds, sf::IntRect* leftBounds, sf::IntRect* rightBounds)
+void Generator::RunInner(Partition& parent)
+{
+  if (_rooms.size() >= _config.num_rooms() || parent._bounds.width <= _config.min_room_width() || parent._bounds.height <= _config.min_room_height())
+    return;
+
+  sf::IntRect left, right;
+  _rooms.push_back(CreateRoom(parent, &left, &right));
+  RunInner(left);
+  RunInner(right);
+}
+
+//----------------------------------------------------------------------------------
+Room Generator::CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRect* rightBounds)
 {
   // create a room inside the given bounds
-  Room room;
+  u32 id = _rooms.size();
+  Room room(id);
 
-  int width = randf(_config.min_room_width(), min(_config.max_room_width(), bounds.width));
-  int height = randf(_config.min_room_height(), min(_config.max_room_height(), bounds.height));
+  int width = randf(_config.min_room_width(), min(_config.max_room_width(), parent._bounds.width));
+  int height = randf(_config.min_room_height(), min(_config.max_room_height(), parent._bounds.height));
   room._bounds.width = width;
   room._bounds.height = height;
 
-  todo: add the room id to a lookup table in the bounds to be able to find adjacent rooms easily
+  // extract bounding dimensions
+  int bleft   = parent._bounds.left;
+  int bright  = bleft + parent._bounds.width;
+  int btop    = parent._bounds.top;
+  int bbottom = btop + parent._bounds.height;
+  int bwidth  = parent._bounds.width;
+  int bheight = parent._bounds.height;
+  int rwidth  = bwidth - width;
+  int rheight = bheight - height;
 
   // choose starting corner
   switch (rand() % 4)
   {
     // top left
     case 0:
-      room._bounds.top = bounds.top;
-      room._bounds.left = bounds.left;
-      *leftBounds = sf::IntRect(bounds.left, bounds.top + height - 1, width, bounds.height - height + 1);
-      *rightBounds = sf::IntRect(bounds.left + width - 1, bounds.top, bounds.width - width + 1, bounds.height);
+      parent._rooms[Partition::TopLeft] = id;
+      room._bounds.top = btop;
+      room._bounds.left = bleft;
+      *leftBounds = sf::IntRect(bleft, bleft + height, width, rheight);
+      *rightBounds = sf::IntRect(bleft + width, btop, rwidth, bheight);
       break;
 
     // top right
     case 1:
-      room._bounds.top = bounds.top;
-      room._bounds.left = bounds.left + bounds.width - width;
-      *leftBounds = sf::IntRect(bounds.left, bounds.top, bounds.width - width + 1, bounds.height);
-      *rightBounds = sf::IntRect(room._bounds.left, bounds.top + height - 1, width, bounds.height - height + 1);
+      parent._rooms[Partition::TopRight] = id;
+      room._bounds.top = btop;
+      room._bounds.left = bright - width;
+      *leftBounds = sf::IntRect(bleft, btop, rwidth, bheight);
+      *rightBounds = sf::IntRect(bright - width, btop + height, width, rheight);
       break;
 
     // bottom left
     case 2:
-      room._bounds.top = bounds.top + bounds.height - height;
-      room._bounds.left = bounds.left;
-      *leftBounds = sf::IntRect(bounds.left, bounds.top, width, bounds.height - height + 1);
-      *rightBounds = sf::IntRect(bounds.left + width - 1, bounds.top, bounds.width - width + 1, bounds.height);
+      parent._rooms[Partition::BottomLeft] = id;
+      room._bounds.top = bbottom - height;
+      room._bounds.left = bleft;
+      *leftBounds = sf::IntRect(bleft, btop, width, rheight);
+      *rightBounds = sf::IntRect(bleft + width, btop, rwidth, bheight);
       break;
 
     // bottom right
     case 3:
-      room._bounds.top = bounds.top + bounds.height - height;
-      room._bounds.left = bounds.left + bounds.width - width;
-      *leftBounds = sf::IntRect(bounds.left, bounds.top, bounds.width - width + 1, bounds.height);
-      *rightBounds = sf::IntRect(room._bounds.left, bounds.top, width, bounds.height - height + 1);
+      parent._rooms[Partition::BottomRight] = id;
+      room._bounds.top = bbottom - height;
+      room._bounds.left = bright - width;
+      *leftBounds = sf::IntRect(bleft, btop, rwidth, bheight);
+      *rightBounds = sf::IntRect(bright - width, btop, width, rheight);
       break;
   }
 
