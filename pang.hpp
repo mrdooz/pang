@@ -37,9 +37,11 @@ namespace pang
     void AddMessage(MessageType type, const string& str);
 
   private:
+    bool IsVisible(u32 x0, u32 y0, u32 x1, u32 y1);
     void UpdateVisibility();
     void Render();
     Vector2f GetEmptyPos() const;
+    Vector2f GetEmptyPos(const Vector2f& center, float radius);
     void DrawGrid();
     void DrawEntities();
     void DrawBullets();
@@ -110,5 +112,7 @@ namespace pang
 
     u8 _prevLeft, _prevRight;
     u64 _tickAcc;
+    Vector2i _windowSize;
+    TwBar* _twBar;
   };
 }

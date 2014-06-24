@@ -116,7 +116,7 @@ namespace pang
     Vector2f center = CircleCenter(e, s);
 
     // update wander angle
-    s._curAngle += s._dir * randf(0, ANGLE_JITTER);
+    s._curAngle += s._dir * randf(0.0f, ANGLE_JITTER);
     if (--s._ticks == 0)
     {
       // choose new direction
@@ -202,6 +202,8 @@ namespace pang
     _messageQueue.clear();
 
   }
+
+
 
 
 }

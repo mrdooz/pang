@@ -15,6 +15,7 @@ find_package(Protobuf REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${SFML_INCLUDE_DIR})
 include_directories(${PROTOBUF_INCLUDE_DIR})
+include_directories("../anttweakbar-code/include/")
 
 file(GLOB SRC "*.cpp" "*.hpp" "protocol/*.pb.cc")
 
@@ -38,6 +39,7 @@ if (APPLE)
     ${SFML_LIBRARIES}
     "/opt/local/boost/lib/libboost_date_time.a"
     "/opt/local/protobuf/lib/libprotobuf.a"
+    "/usr/local/lib/libAntTweakBar.dylib"
     ${APP_SERVICES} )
 else()
   if (MSVC)

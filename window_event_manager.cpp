@@ -47,6 +47,10 @@ void WindowEventManager::Poll()
   Event event;
   while (_window->pollEvent(event))
   {
+    int handled = TwEventSFML(&event, 2, 0);
+    if (handled)
+      continue;
+
     auto it = _handlersByWindow.find(event.type);
     if (it != _handlersByWindow.end())
     {

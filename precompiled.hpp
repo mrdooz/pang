@@ -28,6 +28,8 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/array.hpp>
 
+#include <AntTweakBar.h>
+
 #ifdef _WIN32
 #include <windows.h>
 #include <direct.h>

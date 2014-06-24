@@ -36,7 +36,8 @@ bool Game::Init()
 #endif
 
   sf::ContextSettings settings;
-  _renderWindow.reset(new RenderWindow(sf::VideoMode(8 * width / 10, 8 * height / 10), "...", sf::Style::Default, settings));
+  _windowSize = Vector2i(8 * width / 10, 8 * height / 10);
+  _renderWindow.reset(new RenderWindow(sf::VideoMode(_windowSize.x, _windowSize.y), "...", sf::Style::Default, settings));
   _renderWindow->setVerticalSyncEnabled(true);
   _eventManager.reset(new WindowEventManager(_renderWindow.get()));
 
@@ -45,6 +46,10 @@ bool Game::Init()
   _eventManager->RegisterHandler(Event::LostFocus, bind(&Game::OnLostFocus, this, _1));
   _eventManager->RegisterHandler(Event::GainedFocus, bind(&Game::OnGainedFocus, this, _1));
   _eventManager->RegisterHandler(Event::MouseButtonReleased, bind(&Game::OnMouseButtonReleased, this, _1));
+
+  TwInit(TW_OPENGL, NULL);
+  TwWindowSize(_windowSize.x, _windowSize.y);
+  _twBar = TwNewBar("PangBar");
 
 #ifdef WIN32
   string base("d:/projects/pang/");
@@ -59,7 +64,9 @@ bool Game::Init()
   if (!LoadProto((base + "config/game_large.pb").c_str(), &_gameConfig))
     return false;
 
-  _level.Init(_gameConfig);
+  if (!_level.Init(_gameConfig))
+    return false;
+
   if (!COORDINATOR.Create())
     return false;
 
@@ -83,14 +90,38 @@ Vector2f Game::GetEmptyPos() const
   _level.GetSize(&w, &h);
   while (true)
   {
-    Vector2f pos((float)(rand() % w), (float)(rand() % h));
-    if (_level.IsValidPos(Tile((u32)pos.x, (u32)pos.y)))
+    u32 x = rand() % w;
+    u32 y = rand() % h;
+    if (_level.IsValidPos(Tile(x, y)))
     {
-      return (float)_gridSize * pos;
+      return (float)_gridSize * Vector2f(x, y);
     }
   }
   return Vector2f(0,0);
 }
+
+//----------------------------------------------------------------------------------
+Vector2f Game::GetEmptyPos(const Vector2f& center, float radius)
+{
+  // find an empty position with LOS to the center
+  u32 w, h;
+  _level.GetSize(&w, &h);
+  Tile tile = WorldToTile(center);
+  u32 x0 = tile.x;
+  u32 y0 = tile.y;
+  while (true)
+  {
+    u32 x = (u32)((s32)x0 + randf(-radius, radius));
+    u32 y = (u32)((s32)y0 + randf(-radius, radius));
+    if (_level.IsValidPos(Tile(x, y)) /*&& _level.IsVisible(x0, y0, x, y)*/)
+    {
+      // Check LOS to the center
+      return (float)_gridSize * Vector2f(x, y);
+    }
+  }
+  return Vector2f(0,0);
+}
+
 
 //----------------------------------------------------------------------------------
 void Game::SpawnEnemies()
@@ -98,12 +129,14 @@ void Game::SpawnEnemies()
   assert(_gameConfig.mobs_per_squad() < 16);
   for (int i = 0; i < _gameConfig.num_squads(); ++i)
   {
+    Vector2f squadCenter(GetEmptyPos());
     for (int j = 0; j < _gameConfig.mobs_per_squad(); ++j)
     {
       EntityId idx = ((i+1) << 4) + j;
-      shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos());
+      shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos(squadCenter, 4));
       //e->_debug = new PursuitDebugRenderer(e.get());
       e->_debug = new WanderDebugRenderer(e.get());
+      e->_squadId = i;
       _entities[idx] = e;
 
       _level.SetEntity(WorldToTile(e->_pos), e->_id);
@@ -384,7 +417,6 @@ void Game::DrawGrid()
 
 }
 
-
 //----------------------------------------------------------------------------------
 void Game::UpdateVisibility()
 {
@@ -422,19 +454,7 @@ void Game::UpdateVisibility()
         vector<Vector2i> path;
         const Tile& t1 = WorldToTile(e2->_pos);
 
-        Line(t0.x, t0.y, t1.x, t1.y, &path);
-        Level::Cell* cell;
-        bool intersect = false;
-        for (const Vector2i& p : path)
-        {
-          if (_level.GetCell(Tile(p.x, p.y), &cell) && cell->terrain)
-          {
-            intersect = true;
-            break;
-          }
-        }
-
-        if (!intersect)
+        if (_level.IsVisible(t0.x, t0.y, t1.x, t1.y))
         {
           e->_visibleEntities.push_back(e2->_id);
           if (!localPlayer)
@@ -573,6 +593,8 @@ void Game::Render()
 {
   _renderWindow->clear();
 
+  TwDraw();
+
   if (!_playerDead)
   {
     Vector2u s = _renderWindow->getSize();
@@ -627,15 +649,28 @@ void Game::DrawEntities()
       _renderWindow->draw(aa);
     }
 
-    if (e._id == _localPlayerId && _debugDraw.IsSet(DebugDrawFlags::PlayerInfo))
+    if (e._id == _localPlayerId)
     {
-      AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
+      if (_debugDraw.IsSet(DebugDrawFlags::PlayerInfo))
+      {
+        AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
+      }
+    }
+    else
+    {
+
+      sf::Text text(toString("%d (%d)", e._id, e._squadId), _font);
+      text.setCharacterSize(16);
+      text.setPosition(e._pos.x, e._pos.y+10);
+      _renderWindow->draw(text);
+
+      if (e._debug && _debugDraw.IsSet(DebugDrawFlags::BehaviorInfo))
+      {
+        e._debug->Render(_renderWindow.get());
+      }
+
     }
 
-    if (e._id != _localPlayerId && e._debug && _debugDraw.IsSet(DebugDrawFlags::BehaviorInfo))
-    {
-      e._debug->Render(_renderWindow.get());
-    }
   }
 
   // draw bullets

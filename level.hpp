@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "protocol/level.pb.h"
 
 namespace pang
 {
@@ -27,8 +28,9 @@ namespace pang
 
     Level() : _width(0), _height(0) {}
 
+    bool IsVisible(u32 x0, u32 y0, u32 x1, u32 y1) const;
     bool IsValidPos(const Tile& tile) const;
-    void Init(const config::Game& config);
+    bool Init(const config::Game& config);
 
     bool SetEntity(const Tile& tile, u16 entityId);
     bool GetEntity(const Tile& tile, u16* entityId) const;
@@ -42,6 +44,7 @@ namespace pang
     bool GetCell(const Tile& tile, Cell** cell);
 
   private:
+    bool GenerateLevel();
     bool SetTerrain(u32 x, u32 y, u8 v);
     bool GetTerrain(u32 x, u32 y, u8* v) const;
     bool SetEntity(u32 x, u32 y, u16 entityId);
@@ -53,5 +56,7 @@ namespace pang
     Texture _texture;
     u32 _width, _height;
     vector<Cell> _data;
+    pang::level::Level _levelConfig;
+
   };
 }

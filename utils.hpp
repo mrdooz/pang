@@ -27,7 +27,14 @@ namespace pang
     return (1-v) * a + v * b;
   }
 
-  float randf(float a, float b);
+  template <typename T>
+  T randf(T a, T b)
+  {
+    float t = (float)rand() / RAND_MAX;
+    return lerp(a, b, t);
+  }
+
+
   float gaussianRand(float mean, float variance);
 
   template <class T>

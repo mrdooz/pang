@@ -84,11 +84,6 @@ namespace pang
 #endif
 
   //-----------------------------------------------------------------------------
-  float randf(float a, float b)
-  {
-    float t = (float)rand() / RAND_MAX;
-    return lerp(a, b, t);
-  }
 
   float gaussianRand(float mean, float variance) {
     // Generate a gaussian from the sum of uniformly distributed random numbers
