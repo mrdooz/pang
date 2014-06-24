@@ -44,7 +44,10 @@ struct Partition
 {
   enum Location
   {
-    N, S, E, W
+    North,
+    South,
+    East,
+    West,
   };
 
   enum Corner
@@ -77,7 +80,9 @@ struct Generator
   // level generator based on: http://www.moddb.com/games/frozen-synapse/news/frozen-synapse-procedural-level-generation
   void Run(const pang::level::Level& config);
   void RunInner(Partition& parent);
-  Room CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRect* rightBounds);
+  Room CreateRoom(Partition& parent);
+
+  void AddPartition(Partition& parent, Partition::Location loc, const sf::IntRect& bounds);
 
   pang::level::Level _config;
   sf::IntRect _bounds;
@@ -104,14 +109,26 @@ void Generator::RunInner(Partition& parent)
   if (_rooms.size() >= _config.num_rooms() || parent._bounds.width <= _config.min_room_width() || parent._bounds.height <= _config.min_room_height())
     return;
 
-  sf::IntRect left, right;
-  _rooms.push_back(CreateRoom(parent, &left, &right));
-  RunInner(left);
-  RunInner(right);
+  _rooms.push_back(CreateRoom(parent));
+  for (int i = 0; i < 4; ++i)
+  {
+    u32 id = parent._partitions[i];
+    if (id != ~0)
+    {
+      RunInner(_partitions[id]);
+    }
+  }
 }
 
 //----------------------------------------------------------------------------------
-Room Generator::CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRect* rightBounds)
+void Generator::AddPartition(Partition& parent, Partition::Location loc, const sf::IntRect& bounds)
+{
+  _partitions.push_back(Partition(bounds));
+  parent._partitions[loc] = _partitions.size();
+}
+
+//----------------------------------------------------------------------------------
+Room Generator::CreateRoom(Partition& parent)
 {
   // create a room inside the given bounds
   u32 id = _rooms.size();
@@ -140,8 +157,8 @@ Room Generator::CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRe
       parent._rooms[Partition::TopLeft] = id;
       room._bounds.top = btop;
       room._bounds.left = bleft;
-      *leftBounds = sf::IntRect(bleft, bleft + height, width, rheight);
-      *rightBounds = sf::IntRect(bleft + width, btop, rwidth, bheight);
+      AddPartition(parent, Partition::South, sf::IntRect(bleft, bleft + height, width, rheight));
+      AddPartition(parent, Partition::East, sf::IntRect(bleft + width, btop, rwidth, bheight));
       break;
 
     // top right
@@ -149,8 +166,8 @@ Room Generator::CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRe
       parent._rooms[Partition::TopRight] = id;
       room._bounds.top = btop;
       room._bounds.left = bright - width;
-      *leftBounds = sf::IntRect(bleft, btop, rwidth, bheight);
-      *rightBounds = sf::IntRect(bright - width, btop + height, width, rheight);
+      AddPartition(parent, Partition::West, sf::IntRect(bleft, btop, rwidth, bheight));
+      AddPartition(parent, Partition::South, sf::IntRect(bright - width, btop + height, width, rheight));
       break;
 
     // bottom left
@@ -158,8 +175,8 @@ Room Generator::CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRe
       parent._rooms[Partition::BottomLeft] = id;
       room._bounds.top = bbottom - height;
       room._bounds.left = bleft;
-      *leftBounds = sf::IntRect(bleft, btop, width, rheight);
-      *rightBounds = sf::IntRect(bleft + width, btop, rwidth, bheight);
+      AddPartition(parent, Partition::North, sf::IntRect(bleft, btop, width, rheight));
+      AddPartition(parent, Partition::East, sf::IntRect(bleft + width, btop, rwidth, bheight));
       break;
 
     // bottom right
@@ -167,8 +184,8 @@ Room Generator::CreateRoom(Partition& parent, sf::IntRect* leftBounds, sf::IntRe
       parent._rooms[Partition::BottomRight] = id;
       room._bounds.top = bbottom - height;
       room._bounds.left = bright - width;
-      *leftBounds = sf::IntRect(bleft, btop, rwidth, bheight);
-      *rightBounds = sf::IntRect(bright - width, btop, width, rheight);
+      AddPartition(parent, Partition::West, sf::IntRect(bleft, btop, rwidth, bheight));
+      AddPartition(parent, Partition::North, sf::IntRect(bright - width, btop, width, rheight));
       break;
   }
 
