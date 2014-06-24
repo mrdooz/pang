@@ -48,6 +48,7 @@ struct Room
 //----------------------------------------------------------------------------------
 struct Generator
 {
+  // level generator based on: http://www.moddb.com/games/frozen-synapse/news/frozen-synapse-procedural-level-generation
   void Run(const pang::level::Level& config);
   void RunInner(const sf::IntRect& bounds);
   Room CreateRoom(const sf::IntRect& bounds, sf::IntRect* leftBounds, sf::IntRect* rightBounds);
