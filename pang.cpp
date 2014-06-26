@@ -20,6 +20,7 @@ Game::Game()
     , _prevRight(0)
     , _tickAcc(0)
 {
+  //_debugDraw.Set(DebugDrawFlags::DrawLevel);
 }
 
 //----------------------------------------------------------------------------------
@@ -84,7 +85,7 @@ bool Game::Init()
 }
 
 //----------------------------------------------------------------------------------
-Vector2f Game::GetEmptyPos() const
+Vector2f Game::GetEmptyPos()
 {
   u32 w, h;
   _level.GetSize(&w, &h);
@@ -92,7 +93,8 @@ Vector2f Game::GetEmptyPos() const
   {
     u32 x = rand() % w;
     u32 y = rand() % h;
-    if (_level.IsValidPos(Tile(x, y)))
+    Level::Cell* cell = 0;
+    if (_level.GetCell(Tile(x, y), &cell) && cell->terrain == 0)
     {
       return (float)_gridSize * Vector2f(x, y);
     }
@@ -517,13 +519,21 @@ void Game::Update()
     return;
   }
 
+  _eventManager->Poll();
+
+
+  u64 delta_us = (_now - _lastUpdate).total_microseconds();
+  _lastUpdate = _now;
+
+  if (_debugDraw.IsSet(DebugDrawFlags::DrawLevel))
+    return;
+
   HandleInput();
 
   // calc the number of physics ticks to take (the physics run with a fixed time step)
   static const u64 tickFreq = 100;
   static const u64 tick_us = (u64)(1e6f / tickFreq);
 
-  u64 delta_us = (_now - _lastUpdate).total_microseconds();
   float delta_s = delta_us / 1e6f;
   _tickAcc += delta_us;
   while (_tickAcc > tick_us)
@@ -532,7 +542,6 @@ void Game::Update()
     _tickAcc -= tick_us;
   }
 
-  _eventManager->Poll();
 
   UpdateVisibility();
 
@@ -545,7 +554,6 @@ void Game::Update()
   COORDINATOR.Update();
   UpdateEnemies();
 
-  _lastUpdate = _now;
 }
 
 
@@ -595,25 +603,36 @@ void Game::Render()
 
   TwDraw();
 
-  if (!_playerDead)
+  if (_debugDraw.IsSet(DebugDrawFlags::DrawLevel))
   {
-    Vector2u s = _renderWindow->getSize();
-    _view.setCenter(_entities[_localPlayerId]->_pos);
-    _view.setRotation(0);
-    _view.setSize(VectorCast<float>(s));
-    _renderWindow->setView(_view);
+    float s = 4;
+    _levelSprite.setPosition(0, 0);
+    _levelSprite.setTexture(_level.GetTexture());
+    _levelSprite.setScale(s, s);
+    _renderWindow->draw(_levelSprite);
   }
+  else
+  {
+    if (!_playerDead)
+    {
+      Vector2u s = _renderWindow->getSize();
+      _view.setCenter(_entities[_localPlayerId]->_pos);
+      _view.setRotation(0);
+      _view.setSize(VectorCast<float>(s));
+      _renderWindow->setView(_view);
+    }
 
 //  _level.Diffuse();
 //  _level.UpdateTexture();
-  DrawGrid();
-  DrawEntities();
+    DrawGrid();
+    DrawEntities();
 
-  DebugDrawEntity();
+    DebugDrawEntity();
 
-  if (_playerDead)
-  {
-    AddMessage(MessageType::Debug, "** GAME OVER **");
+    if (_playerDead)
+    {
+      AddMessage(MessageType::Debug, "** GAME OVER **");
+    }
   }
 
   UpdateMessages();

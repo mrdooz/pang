@@ -15,6 +15,8 @@ namespace pang
     struct Cell
     {
       u64 wallDist; // 16 bits for N, S, W, E
+      Color col;
+      u32 roomId;
       u16 entityId;
       u8 terrain;
       u8 heat;
@@ -44,6 +46,10 @@ namespace pang
     bool GetCell(const Tile& tile, Cell** cell);
 
   private:
+    struct Walls { vector<Vector2i> horiz; vector<Vector2i> vert; };
+    map<pair<u32, u32>, Walls> _connections;
+    void CalcAdjacency();
+    void AddRect(int x0, int y0, int x1, int y1, const Color& color, u32 roomId);
     bool GenerateLevel();
     bool SetTerrain(u32 x, u32 y, u8 v);
     bool GetTerrain(u32 x, u32 y, u8* v) const;

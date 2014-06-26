@@ -40,7 +40,7 @@ namespace pang
     bool IsVisible(u32 x0, u32 y0, u32 x1, u32 y1);
     void UpdateVisibility();
     void Render();
-    Vector2f GetEmptyPos() const;
+    Vector2f GetEmptyPos();
     Vector2f GetEmptyPos(const Vector2f& center, float radius);
     void DrawGrid();
     void DrawEntities();
@@ -97,8 +97,8 @@ namespace pang
     Font _font;
     u32 _gridSize;
     struct DebugDrawFlags {
-      enum Enum { EnemyInfo = 0x1, PlayerInfo = 0x2, BehaviorInfo = 0x4, PlayerCone = 0x8 };
-      struct Bits { u32 enemyInfo : 1; u32 playerInfo : 1; u32 behaviorInfo : 1; u32 playerCone : 1; };
+      enum Enum { EnemyInfo = 0x1, PlayerInfo = 0x2, BehaviorInfo = 0x4, PlayerCone = 0x8, DrawLevel = 0x10 };
+      struct Bits { u32 enemyInfo : 1; u32 playerInfo : 1; u32 behaviorInfo : 1; u32 playerCone : 1; u32 drawLevel : 1; };
     };
     Flags<DebugDrawFlags> _debugDraw;
     bool _focus;

@@ -15,31 +15,14 @@ bool Level::Init(const config::Game& config)
 
   if (!GenerateLevel())
     return false;
-/*
-  Vector2i ofs[] = { Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1) };
 
-  // create some random blocks :)
-  for (int i = 0; i < config.num_walls(); ++i)
-  {
-    Vector2i c(rand() % _width, rand() % _height);
-
-    // flood fill out from the center block
-    u32 s = rand() % (u32)(config.max_wall_size() * min(_width, _height));
-    Vector2i dir = ofs[rand() % 4];
-    for (u32 j = 0; j < s; ++j)
-    {
-      SetTerrain(c.x, c.y, 1);
-      c += dir;
-    }
-  }
-*/
-  CalcWallDistance();
   CreateTexture();
+  CalcWallDistance();
 
   return true;
 }
 
-
+struct Room;
 struct Partition
 {
   enum Location
@@ -58,13 +41,13 @@ struct Partition
   Partition(const sf::IntRect& bounds)
       : _bounds(bounds)
   {
-    memset(_rooms, 0xff, sizeof(_rooms));
-    memset(_partitions, 0xff, sizeof(_partitions));
+    memset(_rooms, 0, sizeof(_rooms));
+    memset(_partitions, 0, sizeof(_partitions));
   }
 
   sf::IntRect _bounds;
-  u32 _rooms[4];
-  u32 _partitions[4];
+  Room* _rooms[4];
+  Partition* _partitions[4];
 };
 
 struct Room
@@ -77,18 +60,29 @@ struct Room
 //----------------------------------------------------------------------------------
 struct Generator
 {
+  ~Generator();
   // level generator based on: http://www.moddb.com/games/frozen-synapse/news/frozen-synapse-procedural-level-generation
   void Run(const pang::level::Level& config);
-  void RunInner(Partition& parent);
-  Room CreateRoom(Partition& parent);
+  void RunInner(Partition* parent);
+  Room* CreateRoom(Partition* parent);
 
-  void AddPartition(Partition& parent, Partition::Location loc, const sf::IntRect& bounds);
+  void AddPartition(Partition* parent, Partition::Location loc, const sf::IntRect& bounds);
 
   pang::level::Level _config;
   sf::IntRect _bounds;
-  vector<Room> _rooms;
-  vector<Partition> _partitions;
+  vector<Room*> _rooms;
+  vector<Partition*> _partitions;
 };
+
+//----------------------------------------------------------------------------------
+Generator::~Generator()
+{
+  for (Room* r : _rooms)
+    delete r;
+
+  for (Partition* p : _partitions)
+    delete p;
+}
 
 //----------------------------------------------------------------------------------
 void Generator::Run(const pang::level::Level& config)
@@ -99,53 +93,58 @@ void Generator::Run(const pang::level::Level& config)
   _bounds = sf::IntRect(1, 1, config.width() - 2, config.height() - 2);
 
   // add the global partition
-  _partitions.push_back(Partition(_bounds));
+  _partitions.push_back(new Partition(_bounds));
   RunInner(_partitions.back());
 }
 
 //----------------------------------------------------------------------------------
-void Generator::RunInner(Partition& parent)
+void Generator::RunInner(Partition* parent)
 {
-  if (_rooms.size() >= _config.num_rooms() || parent._bounds.width <= _config.min_room_width() || parent._bounds.height <= _config.min_room_height())
+  if (/*_rooms.size() >= _config.num_rooms()*/ false
+      || parent->_bounds.width <= _config.min_room_width()
+      || parent->_bounds.height <= _config.min_room_height())
+  {
     return;
+  }
 
   _rooms.push_back(CreateRoom(parent));
   for (int i = 0; i < 4; ++i)
   {
-    u32 id = parent._partitions[i];
-    if (id != ~0)
+    if (Partition* p = parent->_partitions[i])
     {
-      RunInner(_partitions[id]);
+      RunInner(p);
     }
   }
 }
 
 //----------------------------------------------------------------------------------
-void Generator::AddPartition(Partition& parent, Partition::Location loc, const sf::IntRect& bounds)
+void Generator::AddPartition(Partition* parent, Partition::Location loc, const sf::IntRect& bounds)
 {
-  _partitions.push_back(Partition(bounds));
-  parent._partitions[loc] = _partitions.size();
+  Partition* p = new Partition(bounds);
+  _partitions.push_back(p);
+  parent->_partitions[loc] = p;
 }
 
 //----------------------------------------------------------------------------------
-Room Generator::CreateRoom(Partition& parent)
+Room* Generator::CreateRoom(Partition* parent)
 {
   // create a room inside the given bounds
   u32 id = _rooms.size();
-  Room room(id);
+  Room* room = new Room(id);
 
-  int width = randf(_config.min_room_width(), min(_config.max_room_width(), parent._bounds.width));
-  int height = randf(_config.min_room_height(), min(_config.max_room_height(), parent._bounds.height));
-  room._bounds.width = width;
-  room._bounds.height = height;
+  int width = randf(_config.min_room_width(), min(_config.max_room_width(), parent->_bounds.width));
+  int height = randf(_config.min_room_height(), min(_config.max_room_height(), parent->_bounds.height));
+  room->_bounds.width = width;
+  room->_bounds.height = height;
 
   // extract bounding dimensions
-  int bleft   = parent._bounds.left;
-  int bright  = bleft + parent._bounds.width;
-  int btop    = parent._bounds.top;
-  int bbottom = btop + parent._bounds.height;
-  int bwidth  = parent._bounds.width;
-  int bheight = parent._bounds.height;
+  int bleft   = parent->_bounds.left;
+  int bright  = bleft + parent->_bounds.width;
+  int btop    = parent->_bounds.top;
+  int bbottom = btop + parent->_bounds.height;
+  int bwidth  = parent->_bounds.width;
+  int bheight = parent->_bounds.height;
+  // remaining height/width (-1 to account for 1 pixel border)
   int rwidth  = bwidth - width;
   int rheight = bheight - height;
 
@@ -154,36 +153,36 @@ Room Generator::CreateRoom(Partition& parent)
   {
     // top left
     case 0:
-      parent._rooms[Partition::TopLeft] = id;
-      room._bounds.top = btop;
-      room._bounds.left = bleft;
-      AddPartition(parent, Partition::South, sf::IntRect(bleft, bleft + height, width, rheight));
+      parent->_rooms[Partition::TopLeft] = room;
+      room->_bounds.top = btop;
+      room->_bounds.left = bleft;
+      AddPartition(parent, Partition::South, sf::IntRect(bleft, btop + height, width, rheight));
       AddPartition(parent, Partition::East, sf::IntRect(bleft + width, btop, rwidth, bheight));
       break;
 
     // top right
     case 1:
-      parent._rooms[Partition::TopRight] = id;
-      room._bounds.top = btop;
-      room._bounds.left = bright - width;
+      parent->_rooms[Partition::TopRight] = room;
+      room->_bounds.top = btop;
+      room->_bounds.left = bright - width + 1;
       AddPartition(parent, Partition::West, sf::IntRect(bleft, btop, rwidth, bheight));
       AddPartition(parent, Partition::South, sf::IntRect(bright - width, btop + height, width, rheight));
       break;
 
     // bottom left
     case 2:
-      parent._rooms[Partition::BottomLeft] = id;
-      room._bounds.top = bbottom - height;
-      room._bounds.left = bleft;
+      parent->_rooms[Partition::BottomLeft] = room;
+      room->_bounds.top = bbottom - height;
+      room->_bounds.left = bleft;
       AddPartition(parent, Partition::North, sf::IntRect(bleft, btop, width, rheight));
       AddPartition(parent, Partition::East, sf::IntRect(bleft + width, btop, rwidth, bheight));
       break;
 
     // bottom right
     case 3:
-      parent._rooms[Partition::BottomRight] = id;
-      room._bounds.top = bbottom - height;
-      room._bounds.left = bright - width;
+      parent->_rooms[Partition::BottomRight] = room;
+      room->_bounds.top = bbottom - height;
+      room->_bounds.left = bright - width;
       AddPartition(parent, Partition::West, sf::IntRect(bleft, btop, rwidth, bheight));
       AddPartition(parent, Partition::North, sf::IntRect(bright - width, btop, width, rheight));
       break;
@@ -207,13 +206,14 @@ bool Level::GenerateLevel()
   Generator gen;
   gen.Run(_levelConfig);
 
-  for (const Room& r : gen._rooms)
+#if 0
+  for (const Room* r : gen._rooms)
   {
     // top
-    int left = r._bounds.left;
-    int right = r._bounds.left + r._bounds.width - 1;
-    int top = r._bounds.top;
-    int bottom = r._bounds.top + r._bounds.height - 1;
+    int left    = r->_bounds.left - 1;
+    int right   = r->_bounds.left + r->_bounds.width + 1;
+    int top     = r->_bounds.top - 1;
+    int bottom  = r->_bounds.top + r->_bounds.height + 1;
 
     // horiz
     for (int i = left; i < right; ++i)
@@ -221,8 +221,8 @@ bool Level::GenerateLevel()
       SetTerrain(i, top, 1);
       SetTerrain(i, bottom, 1);
     }
-    SetTerrain(randf(left, right), top, 0);
-    SetTerrain(randf(left, right), bottom, 0);
+    //SetTerrain(randf(left, right), top, 0);
+    //SetTerrain(randf(left, right), bottom, 0);
 
     // vert
     for (int i = top; i < bottom; ++i)
@@ -231,12 +231,124 @@ bool Level::GenerateLevel()
       SetTerrain(right, i, 1);
     }
 
-    SetTerrain(left, randf(top, bottom), 0);
-    SetTerrain(right, randf(top, bottom), 0);
+    //SetTerrain(left, randf(top, bottom), 0);
+    //SetTerrain(right, randf(top, bottom), 0);
   }
+#endif
+  for (const Room* r : gen._rooms)
+  {
+    // top
+    int left    = r->_bounds.left;
+    int right   = r->_bounds.left + r->_bounds.width;
+    int top     = r->_bounds.top;
+    int bottom  = r->_bounds.top + r->_bounds.height;
+
+    Color col(rand() % 255, rand() % 255, rand() % 255);
+    AddRect(left, top, right, bottom, col, r->_id);
+  }
+
+  CalcAdjacency();
 
   return true;
 }
+
+//----------------------------------------------------------------------------------
+void Level::CalcAdjacency()
+{
+  const auto& sortedPair = [](u32 a, u32 b) { return make_pair(min(a, b), max(a, b)); };
+
+  for (int i = 0; i < _height-1; ++i)
+  {
+    for (int j = 0; j < _width-1; ++j)
+    {
+      const Cell& c0 = _data[(i+0)*_width+(j+0)];
+      const Cell& cx = _data[(i+0)*_width+(j+1)];
+      const Cell& cy = _data[(i+1)*_width+(j+0)];
+
+      u32 r0 = c0.roomId;
+      u32 rx = cx.roomId;
+      u32 ry = cy.roomId;
+
+      // check if the current pixel is a door candidate
+      if (r0 != rx)
+        _connections[sortedPair(r0, rx)].vert.push_back(Vector2i(j, i));
+
+      if (r0 != ry)
+        _connections[sortedPair(r0, ry)].horiz.push_back(Vector2i(j, i));
+    }
+  }
+
+  // sort the connection pixels
+  for (auto& kv : _connections)
+  {
+    vector<Vector2i>& h = kv.second.horiz;
+    sort(h.begin(), h.end(), [&](const Vector2i& lhs, const Vector2i& rhs) { return lhs.y * _width + lhs.x < rhs.y * _width + rhs.x; });
+
+    // note, we use 'x' as the major coordinate here to get pixels in the same vertical
+    // line grouped together
+    vector<Vector2i>& v = kv.second.vert;
+    sort(v.begin(), v.end(), [&](const Vector2i& lhs, const Vector2i& rhs) { return lhs.x * _width + lhs.y < rhs.x * _width + rhs.y; });
+  }
+
+  // fill in the walls
+  for (const auto& kv : _connections)
+  {
+    {
+      const vector<Vector2i>& v = kv.second.vert;
+      int doorPos = v.size() >= 4 ? randf<u32>(1u, v.size()-2) : -100;
+      for (u32 i = 0; i < v.size(); ++i)
+      {
+        int x = v[i].x;
+        int y = v[i].y;
+
+        if (x > 0 && x < _width - 1 && (i == doorPos || i == doorPos + 1))
+          continue;
+
+        _data[y*_width+x].col = Color::White;
+      }
+    }
+    {
+      const vector<Vector2i>& v = kv.second.horiz;
+      int doorPos = v.size() >= 4 ? randf<u32>(1u, v.size()-2) : -100;
+      for (u32 i = 0; i < v.size(); ++i)
+      {
+        int x = v[i].x;
+        int y = v[i].y;
+
+        if (y > 0 && y < _height - 1 && (i == doorPos || i == doorPos + 1))
+            continue;
+
+        _data[y*_width+x].col = Color::White;
+      }
+
+      // fill the corner
+      if (!v.empty())
+      {
+        int x = v[0].x;
+        int y = v[0].y;
+        if (x > 0)
+          _data[y*_width+x-1].col = Color::White;
+      }
+    }
+  }
+
+}
+
+
+//----------------------------------------------------------------------------------
+void Level::AddRect(int x0, int y0, int x1, int y1, const Color& color, u32 roomId)
+{
+  for (int i = y0; i < y1; ++i)
+  {
+    for (int j = x0; j < x1; ++j)
+    {
+      Cell& c = _data[i*_width+j];
+      c.col = color;
+      c.roomId = roomId;
+    }
+  }
+}
+
 
 //----------------------------------------------------------------------------------
 bool Level::IsVisible(u32 x0, u32 y0, u32 x1, u32 y1) const
@@ -396,12 +508,14 @@ void Level::CreateTexture()
   vector<Color> pixels(_width * _height);
   Color* p = pixels.data();
 
+
   for (u32 i = 0; i < _height; ++i)
   {
     for (u32 j = 0; j < _width; ++j)
     {
-      const Cell& cell = _data[i*_width+j];
-      *p++ = cell.terrain ? Color::White : Color::Black;
+      Cell& cell = _data[i*_width+j];
+      cell.terrain = cell.col == Color::White ? 1 : 0;
+      *p++ = cell.col;
 #if 0
       if (cell.terrain > 0)
       {
