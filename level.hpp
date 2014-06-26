@@ -21,7 +21,7 @@ namespace pang
       u8 terrain;
       u8 heat;
       u8 newHeat;
-      Cell() { memset(this, 0, sizeof(Cell)); }
+      Cell() { memset(this, 0, sizeof(Cell)); roomId = ~0; }
       u16 GetWallDistN() const { return (wallDist >> 48) & 0xffff; }
       u16 GetWallDistS() const { return (wallDist >> 32) & 0xffff; }
       u16 GetWallDistW() const { return (wallDist >> 16) & 0xffff; }

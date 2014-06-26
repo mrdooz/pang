@@ -163,11 +163,12 @@ void Game::UpdateEnemies()
       continue;
 
 //    e->_force = BehaviorPursuit(e, localPlayer);
-    e->_force = 0.40f * BehaviorWander(e);
+//    e->_force = 0.40f * BehaviorWander(e);
+    e->_force = 0.60f * BehaviorArrive(e, _entities[_localPlayerId]->_pos);
     Level::Cell* cell;
     if (_level.GetCell(WorldToTile(e->_pos), &cell))
     {
-      e->_force += 0.60f * BehaviorAvoidWall(e, *cell);
+      e->_force += 0.40f * BehaviorAvoidWall(e, *cell);
     }
 
   }
@@ -375,6 +376,7 @@ bool Game::OnKeyReleased(const Event& event)
     case Keyboard::Num2: _debugDraw.Toggle(DebugDrawFlags::PlayerInfo); break;
     case Keyboard::Num3: _debugDraw.Toggle(DebugDrawFlags::BehaviorInfo); break;
     case Keyboard::Num4: _debugDraw.Toggle(DebugDrawFlags::PlayerCone); break;
+    case Keyboard::Num5: _debugDraw.Toggle(DebugDrawFlags::DrawLevel); break;
   }
 
   return true;
@@ -463,7 +465,7 @@ void Game::UpdateVisibility()
           {
             // monster has spotted the player, so report it
             COORDINATOR.SendMessage(AiMessage::MakePlayerSpotted(e2->_pos));
-            AddMessage(MessageType::Debug, toString("player spotted by: %hd", e->_id));
+            //AddMessage(MessageType::Debug, toString("player spotted by: %hd", e->_id));
           }
         }
       }
@@ -496,10 +498,12 @@ void Game::PhysicsUpdate(float delta_ms)
       // penetration, so project the entity backwards
       Vector2f dir = (newPos - prevPos);
       e->_pos -= dir;
+      e->_collision = true;
     }
     else
     {
       e->_pos = newPos;
+      e->_collision = false;
     }
     e->_vel = (e->_pos - e->_prevPos) * invDelta;
     e->_prevPos = prevPos;
@@ -660,20 +664,27 @@ void Game::DrawEntities()
     triangle[2].color = col;
     _renderWindow->draw(triangle);
 
-    // draw the visibility cone
-    if (_debugDraw.IsSet(DebugDrawFlags::PlayerCone) && e._id == _localPlayerId)
-    {
-      ArcShape aa(e._pos + ofs, e._viewDistance, e._rot - e._fov, e._rot + e._fov);
-      aa.setFillColor(Color(e._visibleEntities.empty() ? 200 : 0, 200, 0, 100));
-      _renderWindow->draw(aa);
-    }
-
     if (e._id == _localPlayerId)
     {
+      RectangleShape rect;
+      rect.setPosition(e._pos);
+      rect.setSize(Vector2f(_gridSize, _gridSize));
+      rect.setFillColor(Color(150, e.ReadCollision() ? 0 : 150, 0, 150));
+      _renderWindow->draw(rect);
+
       if (_debugDraw.IsSet(DebugDrawFlags::PlayerInfo))
       {
         AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
       }
+
+      // draw the visibility cone
+      if (_debugDraw.IsSet(DebugDrawFlags::PlayerCone))
+      {
+        ArcShape aa(e._pos + ofs, e._viewDistance, e._rot - e._fov, e._rot + e._fov);
+        aa.setFillColor(Color(e._visibleEntities.empty() ? 200 : 0, 200, 0, 100));
+        _renderWindow->draw(aa);
+      }
+
     }
     else
     {
@@ -759,7 +770,9 @@ void Game::AddMessage(MessageType type, const string& str)
 //------------------------------------------------------------------------------
 Tile Game::WorldToTile(const Vector2f& p) const
 {
-  return Tile((u32)(p.x / _gridSize), (u32)(p.y / _gridSize));
+  float g = _gridSize;
+  float ofs = g / 2;
+  return Tile((u32)((p.x + ofs) / g), (u32)((p.y + ofs)/ g));
 }
 
 //------------------------------------------------------------------------------

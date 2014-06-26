@@ -1,5 +1,6 @@
 #include "entity.hpp"
 #include "utils.hpp"
+#include "behavior.hpp"
 #include "sfml_helpers.hpp"
 
 using namespace pang;
@@ -18,6 +19,7 @@ Entity::Entity(EntityId id, const Vector2f& pos)
     , _rot(0)
     , _fov(PI / 6)
     , _viewDistance(500)
+    , _collision(false)
 {
 }
 

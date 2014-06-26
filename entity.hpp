@@ -16,6 +16,7 @@ namespace pang
     Entity(EntityId id, const Vector2f& pos);
     ~Entity();
     Vector2f Dir() const;
+    bool ReadCollision() const { bool tmp = _collision; _collision = false; return tmp; }
     EntityId _id;
     Vector2f _pos;
     Vector2f _prevPos;
@@ -32,6 +33,7 @@ namespace pang
     float _fov;
     float _viewDistance;
     SquadId _squadId;
+    mutable bool _collision;
 
     vector<EntityId> _visibleEntities;
   };

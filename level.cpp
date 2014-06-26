@@ -90,7 +90,7 @@ void Generator::Run(const pang::level::Level& config)
   _config = config;
 
   // the bounds are retracted to allow for a 1 pixel wall
-  _bounds = sf::IntRect(1, 1, config.width() - 2, config.height() - 2);
+  _bounds = sf::IntRect(1, 1, config.width() - 3, config.height() - 3);
 
   // add the global partition
   _partitions.push_back(new Partition(_bounds));
@@ -144,7 +144,6 @@ Room* Generator::CreateRoom(Partition* parent)
   int bbottom = btop + parent->_bounds.height;
   int bwidth  = parent->_bounds.width;
   int bheight = parent->_bounds.height;
-  // remaining height/width (-1 to account for 1 pixel border)
   int rwidth  = bwidth - width;
   int rheight = bheight - height;
 
@@ -309,7 +308,7 @@ void Level::CalcAdjacency()
     }
     {
       const vector<Vector2i>& v = kv.second.horiz;
-      int doorPos = v.size() >= 4 ? randf<u32>(1u, v.size()-2) : -100;
+      int doorPos = v.size() >= 4 ? randf<u32>(1u, v.size()-3) : -100;
       for (u32 i = 0; i < v.size(); ++i)
       {
         int x = v[i].x;
@@ -326,8 +325,10 @@ void Level::CalcAdjacency()
       {
         int x = v[0].x;
         int y = v[0].y;
-        if (x > 0)
+        if (x > 0 && _data[y*_width+x-1].roomId == ~0)
+        {
           _data[y*_width+x-1].col = Color::White;
+        }
       }
     }
   }
