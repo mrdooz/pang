@@ -6,12 +6,20 @@
 
 namespace pang
 {
+  BehaviorSettings::BehaviorSettings()
+  : wallDist(1.5f)
+  , wallForce(3.0f)
+  {
+  }
+
+  BehaviorSettings g_behaviorSettings;
+
   namespace
   {
-    const float MAX_FORCE = 0.0005f;
     const float MAX_SPEED = 1.0f;
 
     const float ANGLE_JITTER = 0.01f;
+
 
     struct WanderState
     {
@@ -68,7 +76,7 @@ namespace pang
   {
     // returns a force towards the dest
     Vector2f desiredVel = MAX_SPEED * Normalize(dest - e->_pos);
-    return MAX_FORCE * (desiredVel - e->_vel);
+    return desiredVel - e->_vel;
   }
 
 //----------------------------------------------------------------------------------
@@ -79,7 +87,7 @@ namespace pang
       return Vector2f(0,0);
 
     Vector2f desiredVel = MAX_SPEED * Normalize(dist * (dest - e->_pos));
-    return MAX_FORCE * (desiredVel - e->_vel);
+    return desiredVel - e->_vel;
   }
 
   //----------------------------------------------------------------------------------
@@ -128,7 +136,7 @@ namespace pang
     Vector2f pt = center + s._circleRadius * Vector2f(cosf(s._curAngle), sinf(s._curAngle));
 
     // force towards point
-    return MAX_FORCE * Normalize(pt - e->_pos);
+    return Normalize(pt - e->_pos);
   }
 
   //----------------------------------------------------------------------------------
@@ -136,13 +144,15 @@ namespace pang
   {
     Vector2f res(0,0);
 
+    float dist = g_behaviorSettings.wallDist;
+    float scale = g_behaviorSettings.wallForce;
 //    const auto& fnScale = [](float s) { return s > 5 ? 0 : max(0.0f, min(1.0f, expf(5 - s / 5.0f))); };
-    const auto& fnScale = [](float s) { return s > 5 ? 0 : max(0.0f, min(1.0f, 5 - s / 5.0f)); };
+    const auto& fnScale = [=](float s) { return s > dist ? 0 : lerp(0.0f, scale, s / dist); };
 
-    res += MAX_FORCE * fnScale(cell.GetWallDistN()) * Vector2f(0,+1);
-    res += MAX_FORCE * fnScale(cell.GetWallDistS()) * Vector2f(0,-1);
-    res += MAX_FORCE * fnScale(cell.GetWallDistE()) * Vector2f(-1,0);
-    res += MAX_FORCE * fnScale(cell.GetWallDistW()) * Vector2f(+1,0);
+    res += fnScale(cell.GetWallDistN()) * Vector2f(0,+1);
+    res += fnScale(cell.GetWallDistS()) * Vector2f(0,-1);
+    res += fnScale(cell.GetWallDistE()) * Vector2f(-1,0);
+    res += fnScale(cell.GetWallDistW()) * Vector2f(+1,0);
 
     return res;
   }

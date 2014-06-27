@@ -51,6 +51,8 @@ bool Game::Init()
   TwInit(TW_OPENGL, NULL);
   TwWindowSize(_windowSize.x, _windowSize.y);
   _twBar = TwNewBar("PangBar");
+  TwAddVarRW(_twBar, "WallDist", TW_TYPE_FLOAT, &g_behaviorSettings.wallDist, "min=0.1 max=10 step=0.1");
+  TwAddVarRW(_twBar, "WallForce", TW_TYPE_FLOAT, &g_behaviorSettings.wallForce, "min=0.1 max=10 step=0.1");
 
 #ifdef WIN32
   string base("d:/projects/pang/");
@@ -124,7 +126,6 @@ Vector2f Game::GetEmptyPos(const Vector2f& center, float radius)
   return Vector2f(0,0);
 }
 
-
 //----------------------------------------------------------------------------------
 void Game::SpawnEnemies()
 {
@@ -136,7 +137,6 @@ void Game::SpawnEnemies()
     {
       EntityId idx = ((i+1) << 4) + j;
       shared_ptr<Entity> e = make_shared<Entity>(idx, GetEmptyPos(squadCenter, 4));
-      //e->_debug = new PursuitDebugRenderer(e.get());
       e->_debug = new WanderDebugRenderer(e.get());
       e->_squadId = i;
       _entities[idx] = e;
@@ -152,6 +152,8 @@ void Game::UpdateEnemies()
   if (_playerDead || _pausedEnemies)
     return;
 
+  const float MAX_FORCE = 0.0005f;
+
   Entity* localPlayer = _entities[_localPlayerId].get();
 
   Vector2f playerPos(localPlayer->_pos);
@@ -164,12 +166,16 @@ void Game::UpdateEnemies()
 
 //    e->_force = BehaviorPursuit(e, localPlayer);
 //    e->_force = 0.40f * BehaviorWander(e);
-    e->_force = 0.60f * BehaviorArrive(e, _entities[_localPlayerId]->_pos);
+    e->_force = 0.40f * BehaviorArrive(e, _entities[_localPlayerId]->_pos);
     Level::Cell* cell;
     if (_level.GetCell(WorldToTile(e->_pos), &cell))
     {
-      e->_force += 0.40f * BehaviorAvoidWall(e, *cell);
+      e->_force += 0.60f * BehaviorAvoidWall(e, *cell);
     }
+
+    float len = min(MAX_FORCE, Length(e->_force));
+    Normalize(e->_force);
+    e->_force *= len;
 
   }
 
@@ -377,6 +383,7 @@ bool Game::OnKeyReleased(const Event& event)
     case Keyboard::Num3: _debugDraw.Toggle(DebugDrawFlags::BehaviorInfo); break;
     case Keyboard::Num4: _debugDraw.Toggle(DebugDrawFlags::PlayerCone); break;
     case Keyboard::Num5: _debugDraw.Toggle(DebugDrawFlags::DrawLevel); break;
+    case Keyboard::R: SpawnEnemies(); break;
   }
 
   return true;
@@ -605,8 +612,6 @@ void Game::Render()
 {
   _renderWindow->clear();
 
-  TwDraw();
-
   if (_debugDraw.IsSet(DebugDrawFlags::DrawLevel))
   {
     float s = 4;
@@ -640,6 +645,9 @@ void Game::Render()
   }
 
   UpdateMessages();
+
+  TwDraw();
+
   _renderWindow->display();
 }
 

@@ -8,6 +8,15 @@ namespace pang
 
   struct Entity;
 
+  struct BehaviorSettings
+  {
+    BehaviorSettings();
+    float wallDist;
+    float wallForce;
+  };
+
+  extern BehaviorSettings g_behaviorSettings;
+
   struct DebugRenderer
   {
     DebugRenderer(const Entity* entity) : _entity(entity) {}
