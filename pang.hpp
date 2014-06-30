@@ -3,7 +3,6 @@
 #include "entity.hpp"
 #include "level.hpp"
 #include "protocol/game.pb.h"
-#include "flags.hpp"
 
 namespace pang
 {

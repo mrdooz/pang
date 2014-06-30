@@ -1,6 +1,5 @@
 #include "level.hpp"
 #include "protocol/game.pb.h"
-#include "utils.hpp"
 
 using namespace pang;
 using namespace bristol;
