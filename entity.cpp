@@ -1,7 +1,5 @@
 #include "entity.hpp"
-#include "utils.hpp"
 #include "behavior.hpp"
-#include "sfml_helpers.hpp"
 
 using namespace pang;
 

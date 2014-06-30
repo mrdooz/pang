@@ -1,5 +1,4 @@
 #pragma once
-#include "pos.hpp"
 #include "types.hpp"
 
 namespace pang

@@ -3,7 +3,7 @@
 #include "utils.hpp"
 
 using namespace pang;
-
+using namespace bristol;
 
 //----------------------------------------------------------------------------------
 bool Level::Init(const config::Game& config)
@@ -256,9 +256,9 @@ void Level::CalcAdjacency()
 {
   const auto& sortedPair = [](u32 a, u32 b) { return make_pair(min(a, b), max(a, b)); };
 
-  for (int i = 0; i < _height-1; ++i)
+  for (int i = 0; i < (int)_height-1; ++i)
   {
-    for (int j = 0; j < _width-1; ++j)
+    for (int j = 0; j < (int)_width-1; ++j)
     {
       const Cell& c0 = _data[(i+0)*_width+(j+0)];
       const Cell& cx = _data[(i+0)*_width+(j+1)];
@@ -300,7 +300,7 @@ void Level::CalcAdjacency()
         int x = v[i].x;
         int y = v[i].y;
 
-        if (x > 0 && x < _width - 1 && (i == doorPos || i == doorPos + 1))
+        if (x > 0 && x < (int)_width - 1 && (i == doorPos || i == doorPos + 1))
           continue;
 
         _data[y*_width+x].col = Color::White;
@@ -314,7 +314,7 @@ void Level::CalcAdjacency()
         int x = v[i].x;
         int y = v[i].y;
 
-        if (y > 0 && y < _height - 1 && (i == doorPos || i == doorPos + 1))
+        if (y > 0 && y < (int)_height - 1 && (i == doorPos || i == doorPos + 1))
             continue;
 
         _data[y*_width+x].col = Color::White;
@@ -357,9 +357,9 @@ bool Level::IsVisible(u32 x0, u32 y0, u32 x1, u32 y1) const
   // Bresenham from (x0, y0) to (x1, y1), and returns false if any wall is found
   // along the way
 
-  int dx = abs(x1-x0);
+  int dx = (int)abs((s64)x1-(s64)x0);
   int sx = x0 < x1 ? 1 : -1;
-  int dy = abs(y1-y0);
+  int dy = (int)abs((s64)y1-(s64)y0);
   int sy = y0 < y1 ? 1 : -1;
 
   const Cell* ptr = &_data[x0 + y0 * _width];
@@ -608,7 +608,7 @@ void Level::CalcWallDistance()
         cell.wallDist |= (u64)(i - max(0, k)) << 48;
 
         // S
-        for (k = i + 1; k < _height && _data[k*_width+j].terrain == 0; ++k)
+        for (k = i + 1; k < (int)_height && _data[k*_width+j].terrain == 0; ++k)
           continue;
         cell.wallDist |= (u64)(min((int)_height-1, k) - i) << 32;
 
@@ -618,7 +618,7 @@ void Level::CalcWallDistance()
         cell.wallDist |= (u64)(j - max(0, k)) << 16;
 
         // E
-        for (k = j + 1; k < _width && _data[i*_width+k].terrain == 0; ++k)
+        for (k = j + 1; k < (int)_width && _data[i*_width+k].terrain == 0; ++k)
           continue;
         cell.wallDist |= (u64)(min((int)_width-1, k) - j) << 0;
       }

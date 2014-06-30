@@ -1,12 +1,8 @@
 #include "pang.hpp"
-#include "window_event_manager.hpp"
-#include "utils.hpp"
-#include "math_utils.hpp"
-#include "sfml_helpers.hpp"
-#include "math_utils.hpp"
 #include "behavior.hpp"
 
 using namespace pang;
+using namespace bristol;
 
 //----------------------------------------------------------------------------------
 Game::Game()
@@ -64,7 +60,7 @@ bool Game::Init()
     return false;
   }
 
-  if (!LoadProto((base + "config/game_large.pb").c_str(), &_gameConfig))
+  if (!bristol::LoadProto((base + "config/game_large.pb").c_str(), &_gameConfig))
     return false;
 
   if (!_level.Init(_gameConfig))
@@ -282,7 +278,7 @@ void Game::DebugDrawEntity()
     return;
 
   const Entity& e = *_selectedEntity;
-  AddMessage(MessageType::Debug, toString("id: %d", e._id));
+  AddMessage(MessageType::Debug, to_string("id: %d", e._id));
 //  AddMessage(MessageType::Debug, toString("pos: x: %.2f, y: %.2f, rot: %.2f", e._pos.x, e._pos.y, e._rot));
 }
 
@@ -682,7 +678,7 @@ void Game::DrawEntities()
 
       if (_debugDraw.IsSet(DebugDrawFlags::PlayerInfo))
       {
-        AddMessage(MessageType::Debug, toString("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
+        AddMessage(MessageType::Debug, to_string("x: %.2f, y: %.2f", e._pos.x, e._pos.y));
       }
 
       // draw the visibility cone
@@ -697,7 +693,7 @@ void Game::DrawEntities()
     else
     {
 
-      sf::Text text(toString("%d (%d)", e._id, e._squadId), _font);
+      sf::Text text(to_string("%d (%d)", e._id, e._squadId), _font);
       text.setCharacterSize(16);
       text.setPosition(e._pos.x, e._pos.y+10);
       _renderWindow->draw(text);

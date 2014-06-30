@@ -69,14 +69,11 @@ namespace pang
   {
     AiMessage() {}
     AiMessageType type;
-    union
+    struct
     {
-      struct
-      {
-        Vector2f pos;
+      Vector2f pos;
 
-      } playerSpotted;
-    };
+    } playerSpotted;
 
     static AiMessage MakePlayerSpotted(const Vector2f& pos)
     {

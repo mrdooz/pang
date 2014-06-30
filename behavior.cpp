@@ -1,8 +1,7 @@
 #include "behavior.hpp"
 #include "entity.hpp"
-#include "math_utils.hpp"
-#include "sfml_helpers.hpp"
-#include "utils.hpp"
+
+using namespace bristol;
 
 namespace pang
 {
